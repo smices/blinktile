@@ -28,7 +28,7 @@
   class IconEngine {
     constructor(data) {
       this.data = data;
-      this.brightness = 3; this.speed = 1; this.idle = 'off'; this.paused = false;
+      this.brightness = 64; this.speed = 1; this.idle = 'off'; this.paused = false;
       this.content = null; this.phase = 0; this.petPhase = 0; this.last = null; this.expires = null;
       this.powerLimited = false; this.estimatedMA = 64;
     }
