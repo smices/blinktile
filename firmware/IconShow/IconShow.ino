@@ -683,9 +683,9 @@ uint16_t iconFrameAt(const IconDef *icon, const AnimationSpec &animation, uint32
 }
 
 const IconDef *drawPet(uint8_t frame[kPixels], uint32_t phase) {
-  static const char *ids[] = {"smile", "smile", "smile", "happy", "happy", "wink", "sleepy", "surprised"};
-  static const uint32_t colors[] = {0xFFD040, 0xFFE060, 0xFFC830, 0x80FF40, 0x60E840, 0xFF8A30, 0x4080FF, 0xFF60A8};
-  static const uint16_t periods[] = {5200, 4600, 5800, 1400, 1700, 2400, 4200, 1800};
+  static const char *ids[] = {"smile", "smile", "smile", "happy", "happy", "wink", "sleepy", "surprised", "heart", "heart"};
+  static const uint32_t colors[] = {0xFFD040, 0xFFE060, 0xFFC830, 0x80FF40, 0x60E840, 0xFF8A30, 0x4080FF, 0xFF60A8, 0xFF2040, 0xFF4060};
+  static const uint16_t periods[] = {5200, 4600, 5800, 1400, 1700, 2400, 4200, 1800, 1400, 1500};
   if (!petMoodUntil || timeReached(phase, petMoodUntil)) {
     previousPetMood = petMood;
     petMood = esp_random() % (sizeof(ids) / sizeof(ids[0]));
@@ -693,8 +693,10 @@ const IconDef *drawPet(uint8_t frame[kPixels], uint32_t phase) {
     petMoodStarted = phase;
     petMoodColor = colors[petMood];
     petMoodPeriod = periods[petMood];
-    const bool linger = !strcmp(ids[petMood], "smile") || !strcmp(ids[petMood], "happy");
-    petMoodUntil = phase + petMoodPeriod * (linger ? 1 + esp_random() % 2 : 1);
+    uint8_t cycles = 1;
+    if (!strcmp(ids[petMood], "smile") || !strcmp(ids[petMood], "happy")) cycles += esp_random() % 2;
+    else if (!strcmp(ids[petMood], "heart")) cycles = 2 + esp_random() % 2;
+    petMoodUntil = phase + petMoodPeriod * cycles;
   }
   const int index = findIcon(ids[petMood]);
   const IconDef *pet = index >= 0 ? &ICONS[index] : nullptr;
