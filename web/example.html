@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IconShow client example</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main style="padding-top:48px;max-width:720px">
+    <p class="kicker">ICONSHOW / CLIENT EXAMPLE</p>
+    <h1>Send one real command</h1>
+    <p class="lede">This page uses the same client as the controller. Disconnected calls return an error; no command is sent.</p>
+    <section class="connection" aria-labelledby="example-connect">
+      <h2 id="example-connect">Connect</h2>
+      <label for="example-url">WebSocket URL<input id="example-url" value="ws://localhost:8765/ws" spellcheck="false"></label>
+      <label for="example-token">Control token<input id="example-token" type="password" autocomplete="off"></label>
+      <div class="button-row"><button id="example-connect-ws" type="button" class="primary">Connect WebSocket</button><button id="example-connect-ble" type="button">Choose BLE</button><button id="example-disconnect" type="button">Disconnect</button></div>
+    </section>
+    <section class="workbench" aria-labelledby="example-actions">
+      <h2 id="example-actions">Actions</h2>
+      <div class="button-row"><button id="example-icon" type="button" class="primary">Show success</button><button id="example-text" type="button">Scroll 100%</button><button id="example-idle" type="button">Enable pet</button><button id="example-off" type="button" class="danger">Off</button></div>
+      <pre id="example-status" class="device-state" role="status" aria-live="polite">Disconnected</pre>
+    </section>
+  </main>
+  <script src="client.js"></script>
+  <script>
+    (function () {
+      var status = document.getElementById('example-status');
+      var client = new IconClient({
+        onConnection: function (info) { status.textContent = info.connected ? (info.simulator ? 'Simulator authenticated' : 'Device authenticated') : 'Disconnected'; },
+        onState: function (state) { status.textContent = JSON.stringify(state, null, 2); },
+        onEvent: function (event) { if (event.error) status.textContent = event.error; }
+      });
+      function show(result) { status.textContent = JSON.stringify(result, null, 2); }
+      function failure(error) { status.textContent = error.message; }
+      function token() { return document.getElementById('example-token').value; }
+      document.getElementById('example-connect-ws').onclick = function () { client.connectWebSocket(document.getElementById('example-url').value, token()).catch(function (e) { status.textContent = e.message; }); };
+      document.getElementById('example-connect-ble').onclick = function () { client.connectBLE(token()).catch(function (e) { status.textContent = e.message; }); };
+      document.getElementById('example-disconnect').onclick = function () { client.disconnect(); };
+      document.getElementById('example-icon').onclick = function () { client.showIcon('success', { duration_ms: 3000 }).then(show).catch(failure); };
+      document.getElementById('example-text').onclick = function () { client.showText('100%', { scroll: { mode: 'auto', direction: 'left', step_ms: 80, repeat: 1 }, color: { mode: 'solid', values: ['green'], period_ms: 5000 } }).then(show).catch(failure); };
+      document.getElementById('example-idle').onclick = function () { client.setIdle('pet').then(show).catch(failure); };
+      document.getElementById('example-off').onclick = function () { client.off().then(show).catch(failure); };
+    }());
+  </script>
+</body>
+</html>

@@ -1,4 +1,5 @@
 .build/
+firmware/**/build/
 .venv/
 __pycache__/
 dist/

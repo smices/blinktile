@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#e9f0f7">
+  <title>IconShow · 8×8 状态灯</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="kicker">ICONSHOW / 8×8 LED WORKBENCH</p>
+      <h1>把一个状态，点亮成一个表情。</h1>
+      <p class="lede">离线可用的图鉴、实时预览，以及对真实灯板的明确发送边界。</p>
+    </div>
+    <div id="connection-state" class="connection-state is-local" role="status">仅本地预览</div>
+  </header>
+
+  <main>
+    <section class="workbench" aria-labelledby="workbench-title">
+      <div class="section-heading">
+        <div><p class="eyebrow">控制台</p><h2 id="workbench-title">显示控制器</h2></div>
+        <p id="notice" class="notice" role="status" aria-live="polite"></p>
+      </div>
+      <div class="workbench-grid">
+        <div class="preview-panel">
+          <div class="preview-head"><span>本地预览</span><span id="preview-state">off</span></div>
+          <canvas id="preview" width="320" height="320" aria-label="8×8 LED local preview"></canvas>
+          <p class="hint">预览始终运行；只有连接设备后点击发送，硬件才会收到命令。</p>
+          <div class="preview-actions"><button id="idle-pet" type="button">开启桌宠</button><button id="idle-off" type="button">关闭桌宠</button><button id="copy-command" type="button">复制当前 JSON</button></div>
+          <label for="command-json">当前指令<textarea id="command-json" rows="8" readonly spellcheck="false"></textarea></label>
+          <pre id="device-state" class="device-state" aria-live="polite">等待状态</pre>
+        </div>
+        <div class="controls">
+          <fieldset>
+            <legend>显示内容</legend>
+            <label for="icon-select">图标</label>
+            <div class="inline-action"><select id="icon-select"></select><button id="send-icon" type="button" class="primary">发送图标</button></div>
+            <label for="text-input">文字 <span class="muted">ASCII，最多 64 字符</span></label>
+            <div class="inline-action"><input id="text-input" type="text" maxlength="64" value="100%" spellcheck="false"><button id="send-text" type="button" class="primary">发送文字</button></div>
+          </fieldset>
+
+          <fieldset>
+            <legend>颜色与效果</legend>
+            <div class="field-row">
+              <label for="color-mode">颜色模式<select id="color-mode"><option value="solid">Solid</option><option value="step">Step</option><option value="gradient">Gradient</option><option value="rainbow_cycle">Rainbow cycle</option><option value="rainbow_flow">Rainbow flow</option></select></label>
+              <label for="colors">颜色值 <span class="muted">留空跟随默认；名称或 #hex，逗号分隔</span><input id="colors" type="text" value="" spellcheck="false"></label>
+            </div>
+            <div class="field-row">
+              <label for="effect">效果<select id="effect"><option value="none">None</option><option value="breathe">Breathe</option><option value="alternate">Alternate</option><option value="blink">Blink</option></select></label>
+              <label for="effect-period">效果周期 <span class="muted">ms</span><input id="effect-period" type="number" min="500" max="60000" value="2000"></label>
+            </div>
+            <div class="field-row">
+              <label for="color-period">颜色周期 <span class="muted">ms</span><input id="color-period" type="number" min="500" max="60000" value="5000"></label>
+              <span class="hint">彩虹模式使用预设七色；颜色范围会按时间插值。</span>
+            </div>
+            <div class="field-row compact">
+              <label for="effect-min">最小亮度<input id="effect-min" type="number" min="0" max="255" value="0"></label>
+              <label for="effect-max">最大亮度<input id="effect-max" type="number" min="0" max="255" value="255"></label>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>节奏</legend>
+            <div class="field-row compact">
+              <label for="duration">持续时间 <span class="muted">ms</span><input id="duration" type="number" min="0" max="86400000" placeholder="不自动释放"></label>
+              <label for="animation-enabled">图标动画<select id="animation-enabled"><option value="auto">跟随图标</option><option value="true">启用</option><option value="false">静态代表帧</option></select></label>
+              <label for="animation-period">像素动画周期 <span class="muted">ms</span><input id="animation-period" type="number" min="100" max="60000" placeholder="图标默认"></label>
+              <label for="icon-repeat">图标重复 <span class="muted">0 = 无限</span><input id="icon-repeat" type="number" min="0" max="65535" value="0"></label>
+              <label for="text-repeat">文字重复 <span class="muted">0 = 无限</span><input id="text-repeat" type="number" min="0" max="65535" value="1"></label>
+            </div>
+            <div class="field-row">
+              <label for="scroll-mode">滚动<select id="scroll-mode"><option value="auto">Auto</option><option value="always">Always</option><option value="never">Never</option></select></label>
+              <label for="direction">方向<select id="direction"><option value="left">Left</option><option value="right">Right</option></select></label>
+            </div>
+            <label for="step-ms">滚动步进 <span class="muted">20–60000 ms</span><input id="step-ms" type="number" min="20" max="60000" value="80"></label>
+          </fieldset>
+
+          <div class="tuning-row">
+            <label for="brightness">全局亮度 <output id="brightness-value">64 / 255 · 25%</output><input id="brightness" type="range" min="0" max="255" value="64" oninput="document.getElementById('brightness-value').value=this.value+' / 255 · '+Math.round(this.value/255*100)+'%'" ></label>
+            <button id="set-brightness" type="button">应用亮度</button>
+            <label for="speed">速度 <output id="speed-value">1×</output><input id="speed" type="range" min="0.25" max="4" step="0.25" value="1" oninput="document.getElementById('speed-value').value=this.value+'×'"></label>
+            <button id="set-speed" type="button">应用速度</button>
+          </div>
+          <div class="button-row"><button id="pause" type="button">暂停</button><button id="resume" type="button">继续</button><button id="release" type="button">释放内容</button><button id="off" type="button" class="danger">关闭灯板</button><button id="get-state" type="button">读取状态</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="connection" aria-labelledby="connection-title">
+      <div class="section-heading"><div><p class="eyebrow">真实设备</p><h2 id="connection-title">设备连接</h2></div><p class="muted">密钥只在当前页面内存中使用。</p></div>
+      <div class="connection-grid">
+        <label for="ws-url">WebSocket 地址<input id="ws-url" type="url" value="ws://localhost:8765/ws" spellcheck="false"></label>
+        <label for="token">控制密钥<input id="token" type="password" autocomplete="off"></label>
+        <div class="button-row connection-actions"><button id="connect-ws" type="button" class="primary">连接 WebSocket</button><button id="connect-ble" type="button">选择 BLE 设备</button><button id="disconnect" type="button">断开</button><button id="provision" type="button">打开配网热点</button></div>
+      </div>
+    </section>
+
+    <section class="gallery" aria-labelledby="gallery-title">
+      <div class="section-heading"><div><p class="eyebrow">真实素材</p><h2 id="gallery-title">图标与表情</h2></div><p class="muted">PNG 是 8×8 原图；GIF 需要明确点击播放。</p></div>
+      <div id="gallery-list" class="gallery-grid"></div>
+    </section>
+
+    <section class="gallery examples" aria-labelledby="examples-title">
+      <div class="section-heading"><div><p class="eyebrow">可复用组合</p><h2 id="examples-title">动画与滚动示例</h2></div></div>
+      <div id="examples-list" class="gallery-grid"></div>
+    </section>
+  </main>
+  <footer><span>IconShow</span><span>WebSocket :81/ws · BLE service 6d8f…e100</span></footer>
+  <script src="data.js"></script>
+  <script src="engine.js"></script>
+  <script src="client.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
