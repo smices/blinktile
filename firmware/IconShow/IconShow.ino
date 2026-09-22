@@ -9,6 +9,8 @@
 #include <WebServer.h>
 #include <WebSocketsServer.h>
 #include <WiFi.h>
+#include <time.h>
+#include <sys/time.h>
 
 #include "assets.h"
 
@@ -28,6 +30,9 @@ constexpr uint8_t kDefaultBrightness = 64;
 constexpr uint16_t kDefaultColorPeriod = 5000;
 constexpr uint16_t kDefaultEffectPeriod = 2000;
 constexpr uint16_t kDefaultScrollStep = 80;
+constexpr uint32_t kClockMinDelayMs = 120000;
+constexpr uint32_t kClockDelayRangeMs = 300001;
+constexpr time_t kValidEpoch = 1700000000;
 constexpr float kPi = 3.14159265358979323846f;
 
 Adafruit_NeoPixel pixels(kPixels, kLedPin, NEO_GRB + NEO_KHZ800);
@@ -99,7 +104,10 @@ struct RenderState {
 };
 
 RenderState state;
-IdleMode idleMode = IDLE_OFF;
+IdleMode idleMode = IDLE_PET;
+int16_t utcOffsetMinutes = 480;
+uint32_t nextPetClockAt = 0;
+bool petClockPending = true;
 float speed = 1.0f;
 bool paused = false;
 uint32_t phaseRealOrigin = 0;
@@ -496,6 +504,38 @@ void applyRenderState(RenderState &next, uint32_t now) {
   next.virtualStarted = 0;
   state = next;
   frameDirty = true;
+}
+
+bool clockText(char out[6]) {
+  const time_t utc = time(nullptr);
+  if (utc < kValidEpoch) return false;
+  const time_t local = utc + static_cast<time_t>(utcOffsetMinutes) * 60;
+  struct tm parts;
+  gmtime_r(&local, &parts);
+  snprintf(out, 6, "%02d:%02d", parts.tm_hour, parts.tm_min);
+  return true;
+}
+
+void showPetClock(uint32_t now) {
+  char text[6];
+  if (!clockText(text)) return;
+  RenderState next;
+  next.mode = MODE_TEXT;
+  strncpy(next.text, text, sizeof(next.text) - 1);
+  next.staticText = false;
+  next.scrollFinite = true;
+  next.scrollRepeat = 1;
+  next.scrollStepMs = kDefaultScrollStep;
+  next.color.values[0] = 0xFFFFFF;
+  next.brightness = state.brightness;
+  applyRenderState(next, now);
+  petClockPending = false;
+  nextPetClockAt = now + kClockMinDelayMs + esp_random() % kClockDelayRangeMs;
+}
+
+void petClockTick(uint32_t now) {
+  if (state.mode != MODE_IDLE || idleMode != IDLE_PET) return;
+  if (petClockPending || (nextPetClockAt && timeReached(now, nextPetClockAt))) showPetClock(now);
 }
 
 bool ensureAuth(const QueueItem &item, JsonObjectConst root) {
@@ -1439,6 +1479,7 @@ bool onlyCommandKeys(JsonObjectConst root, const char *op) {
   static const char *const keepalive[] = {"id", "op", "target_id"};
   static const char *const basic[] = {"id", "op"};
   static const char *const wifi[] = {"id", "op", "ssid", "password"};
+  static const char *const clock[] = {"id", "op", "epoch", "utc_offset_min"};
   const char *const *allowed = basic;
   size_t count = sizeof(basic) / sizeof(basic[0]);
   if (!strcmp(op, "auth")) { allowed = auth; count = sizeof(auth) / sizeof(auth[0]); }
@@ -1448,6 +1489,7 @@ bool onlyCommandKeys(JsonObjectConst root, const char *op) {
   else if (!strcmp(op, "idle")) { allowed = idle; count = sizeof(idle) / sizeof(idle[0]); }
   else if (!strcmp(op, "keepalive")) { allowed = keepalive; count = sizeof(keepalive) / sizeof(keepalive[0]); }
   else if (!strcmp(op, "wifi")) { allowed = wifi; count = sizeof(wifi) / sizeof(wifi[0]); }
+  else if (!strcmp(op, "clock")) { allowed = clock; count = sizeof(clock) / sizeof(clock[0]); }
   for (JsonPairConst pair : root) {
     bool known = false;
     for (size_t index = 0; index < count; ++index) {
@@ -1534,10 +1576,15 @@ void handleRequest(const QueueItem &item, uint32_t now) {
     response["ap_name"] = apName;
     response["ble_connected"] = bleConnected;
     response["wifi_candidate_status"] = candidateStatus;
+    char currentTime[6];
+    response["time"] = clockText(currentTime) ? currentTime : nullptr;
+    response["utc_offset_min"] = utcOffsetMinutes;
     sendResponse(item.source, item.client, response);
     return;
   }
   if (strcmp(op, "off") == 0) {
+    petClockPending = false;
+    nextPetClockAt = 0;
     enterIdle(now, IDLE_OFF);
     sendOk(item.source, item.client, root);
     return;
@@ -1549,13 +1596,30 @@ void handleRequest(const QueueItem &item, uint32_t now) {
       if (!mode) { sendError(item.source, item.client, root, "invalid_idle_mode"); return; }
     }
     if (strcmp(mode, "off") != 0 && strcmp(mode, "pet") != 0) { sendError(item.source, item.client, root, "invalid_idle_mode"); return; }
-    idleMode = strcmp(mode, "pet") == 0 ? IDLE_PET : IDLE_OFF;
+    const IdleMode nextIdle = strcmp(mode, "pet") == 0 ? IDLE_PET : IDLE_OFF;
+    if (nextIdle == IDLE_PET && idleMode != IDLE_PET) petClockPending = true;
+    if (nextIdle == IDLE_OFF) { petClockPending = false; nextPetClockAt = 0; }
+    idleMode = nextIdle;
     if (!isActive()) {
       state.mode = MODE_IDLE;
       resetPhase(now);
       state.virtualStarted = 0;
       frameDirty = true;
     }
+    sendOk(item.source, item.client, root);
+    return;
+  }
+  if (strcmp(op, "clock") == 0) {
+    uint32_t epoch = 0;
+    if (!parseUInt(root["epoch"], static_cast<uint32_t>(kValidEpoch), 4102444799UL, epoch) || !root["utc_offset_min"].is<int>()) {
+      sendError(item.source, item.client, root, "invalid_clock");
+      return;
+    }
+    const int offset = root["utc_offset_min"].as<int>();
+    if (offset < -720 || offset > 840) { sendError(item.source, item.client, root, "invalid_clock"); return; }
+    struct timeval value = {static_cast<time_t>(epoch), 0};
+    settimeofday(&value, nullptr);
+    utcOffsetMinutes = offset;
     sendOk(item.source, item.client, root);
     return;
   }
@@ -1663,6 +1727,7 @@ void firmwareSetup() {
   resetPhase(millis());
   loadSecrets();
   initWifi();
+  configTime(0, 0, "pool.ntp.org", "time.nist.gov");
   setupHttp();
   setupBle();
   webSocket.begin();
@@ -1691,6 +1756,7 @@ void firmwareLoop() {
       }
     }
   }
+  petClockTick(millis());
   render(millis());
   delay(1);
 }

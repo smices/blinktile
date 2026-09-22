@@ -128,6 +128,7 @@
     pause(){return this.send({op:'pause'});} resume(){return this.send({op:'resume'});}
     release(){return this.send({op:'release'});} off(){return this.send({op:'off'});}
     setIdle(mode){return this.send({op:'idle',mode});}
+    syncClock(){return this.send({op:'clock',epoch:Math.floor(Date.now()/1000),utc_offset_min:-new Date().getTimezoneOffset()});}
     keepalive(target_id){return this.send({op:'keepalive',target_id});}
     getState(){return this.send({op:'get'});}
     openProvisioningHotspot(){return this.send({op:'provision'});}

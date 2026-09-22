@@ -226,6 +226,7 @@
       try {
         if(kind==='ws')await client.connectWebSocket(byId('ws-url').value,byId('token').value);
         else await client.connectBLE(byId('token').value);
+        if(version===connectVersion)await client.syncClock();
         if(version===connectVersion)await synchronize(version);
       } catch(error){if(version===connectVersion){syncing=false;setNotice(error.message,true);}}
     }
