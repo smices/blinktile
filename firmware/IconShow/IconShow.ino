@@ -108,6 +108,12 @@ IdleMode idleMode = IDLE_PET;
 int16_t utcOffsetMinutes = 480;
 uint32_t nextPetClockAt = 0;
 bool petClockPending = true;
+uint8_t petMood = 0;
+uint8_t previousPetMood = 255;
+uint32_t petMoodStarted = 0;
+uint32_t petMoodUntil = 0;
+uint32_t petMoodColor = 0xFFD040;
+uint16_t petMoodPeriod = 5000;
 float speed = 1.0f;
 bool paused = false;
 uint32_t phaseRealOrigin = 0;
@@ -494,6 +500,7 @@ void enterIdle(uint32_t now, IdleMode mode) {
   idleMode = mode;
   resetPhase(now);
   state.virtualStarted = 0;
+  petMoodUntil = 0;
   frameDirty = true;
 }
 
@@ -675,17 +682,31 @@ uint16_t iconFrameAt(const IconDef *icon, const AnimationSpec &animation, uint32
   return icon->frameCount - 1;
 }
 
-void drawPet(uint8_t frame[kPixels], uint32_t phase) {
-  static const char *ids[] = {"smile", "happy", "wink", "sleepy"};
-  const int index = findIcon(ids[(phase / 20000UL) % 4]);
+const IconDef *drawPet(uint8_t frame[kPixels], uint32_t phase) {
+  static const char *ids[] = {"smile", "smile", "smile", "happy", "happy", "wink", "sleepy", "surprised"};
+  static const uint32_t colors[] = {0xFFD040, 0xFFE060, 0xFFC830, 0x80FF40, 0x60E840, 0xFF8A30, 0x4080FF, 0xFF60A8};
+  static const uint16_t periods[] = {5200, 4600, 5800, 1400, 1700, 2400, 4200, 1800};
+  if (!petMoodUntil || timeReached(phase, petMoodUntil)) {
+    previousPetMood = petMood;
+    petMood = esp_random() % (sizeof(ids) / sizeof(ids[0]));
+    while (!strcmp(ids[petMood], ids[previousPetMood])) petMood = (petMood + 1) % (sizeof(ids) / sizeof(ids[0]));
+    petMoodStarted = phase;
+    petMoodColor = colors[petMood];
+    petMoodPeriod = periods[petMood];
+    const bool linger = !strcmp(ids[petMood], "smile") || !strcmp(ids[petMood], "happy");
+    petMoodUntil = phase + petMoodPeriod * (linger ? 1 + esp_random() % 2 : 1);
+  }
+  const int index = findIcon(ids[petMood]);
   const IconDef *pet = index >= 0 ? &ICONS[index] : nullptr;
-  if (!pet) return;
+  if (!pet) return nullptr;
   AnimationSpec petAnimation;
   petAnimation.enabled = pet->frameCount > 1;
-  petAnimation.periodMs = pet->period;
+  petAnimation.periodMs = petMoodPeriod;
+  petAnimation.periodProvided = true;
   bool petFinished = false;
-  const uint16_t petFrame = iconFrameAt(pet, petAnimation, phase % 20000UL, petFinished);
+  const uint16_t petFrame = iconFrameAt(pet, petAnimation, phase - petMoodStarted, petFinished);
   for (uint16_t i = 0; i < kPixels; ++i) frame[i] = iconPixel(pet, petFrame, i);
+  return pet;
 }
 
 void drawText(uint8_t frame[kPixels], const char *text, int16_t originX, uint32_t phase, bool scroll) {
@@ -783,13 +804,10 @@ void render(uint32_t now) {
   uint32_t phase = virtualNow(now) - state.virtualStarted;
   if (state.mode == MODE_IDLE) {
     if (idleMode == IDLE_PET) {
-      static const char *petIds[] = {"smile", "happy", "wink", "sleepy"};
-      const int petIndex = findIcon(petIds[(phase / 20000UL) % 4]);
-      const IconDef *pet = petIndex >= 0 ? &ICONS[petIndex] : nullptr;
+      const IconDef *pet = drawPet(frame, phase);
       if (pet) {
-        drawPet(frame, phase);
         ColorSpec petColor;
-        petColor.values[0] = pet->color & 0xFFFFFFUL;
+        petColor.values[0] = petMoodColor;
         showFrame(frame, petColor, EffectSpec(), state.brightness, phase);
       } else {
         showFrame(frame, ColorSpec(), EffectSpec(), state.brightness, phase);

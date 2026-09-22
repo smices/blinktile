@@ -52,6 +52,7 @@ struct PixelOutput {
  void setPixelColor(uint16_t i,uint32_t c){values[i]=c;}
  void show(){}
 } pixels;
+uint32_t esp_random(){static uint32_t value=1;value=value*1664525+1013904223;return value;}
 '''
     cpp += source[source.index('constexpr uint8_t kWidth'):source.index('Adafruit_NeoPixel pixels')]
     for name in ['Mode','IdleMode','ColorMode','EffectType']:
@@ -64,6 +65,10 @@ float speed=1;
 bool paused=false,frameDirty=true,lastPowerLimited=false;
 float lastEstimatedMa=64;
 uint32_t phaseRealOrigin=0,phaseVirtualOrigin=0,lastFrameAt=0;
+uint8_t petMood=0,previousPetMood=255;
+uint32_t petMoodStarted=0,petMoodUntil=0;
+uint32_t petMoodColor=0xFFD040;
+uint16_t petMoodPeriod=5000;
 '''
     names = ['timeReached','timeElapsed','parseUInt','parseByte','parseId','findIcon','parseHexColor','parseColorName',
       'parseColor','parseEffect','parseAnimation','parseCommon','parseIdFromRoot','virtualNow','resetPhase','setSpeed',
