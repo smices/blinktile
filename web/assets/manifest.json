@@ -146,7 +146,7 @@
         "scroll": {
           "mode": "always",
           "direction": "left",
-          "step_ms": 80,
+          "step_ms": 180,
           "repeat": 0
         }
       },
@@ -164,7 +164,7 @@
         "scroll": {
           "mode": "always",
           "direction": "left",
-          "step_ms": 80,
+          "step_ms": 180,
           "repeat": 0
         }
       },
@@ -182,7 +182,7 @@
         "scroll": {
           "mode": "always",
           "direction": "left",
-          "step_ms": 80,
+          "step_ms": 180,
           "repeat": 0
         }
       },
@@ -200,7 +200,7 @@
         "scroll": {
           "mode": "always",
           "direction": "left",
-          "step_ms": 80,
+          "step_ms": 180,
           "repeat": 0
         }
       },
@@ -218,7 +218,7 @@
         "scroll": {
           "mode": "always",
           "direction": "left",
-          "step_ms": 80,
+          "step_ms": 180,
           "repeat": 0
         }
       },

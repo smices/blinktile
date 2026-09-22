@@ -39,7 +39,7 @@
       document.getElementById('example-connect-ble').onclick = function () { client.connectBLE(token()).catch(function (e) { status.textContent = e.message; }); };
       document.getElementById('example-disconnect').onclick = function () { client.disconnect(); };
       document.getElementById('example-icon').onclick = function () { client.showIcon('success', { duration_ms: 3000 }).then(show).catch(failure); };
-      document.getElementById('example-text').onclick = function () { client.showText('100%', { scroll: { mode: 'auto', direction: 'left', step_ms: 80, repeat: 1 }, color: { mode: 'solid', values: ['green'], period_ms: 5000 } }).then(show).catch(failure); };
+      document.getElementById('example-text').onclick = function () { client.showText('100%', { scroll: { mode: 'auto', direction: 'left', step_ms: 180, repeat: 1 }, color: { mode: 'solid', values: ['green'], period_ms: 5000 } }).then(show).catch(failure); };
       document.getElementById('example-idle').onclick = function () { client.setIdle('pet').then(show).catch(failure); };
       document.getElementById('example-off').onclick = function () { client.off().then(show).catch(failure); };
     }());

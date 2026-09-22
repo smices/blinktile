@@ -169,7 +169,7 @@
     byId('animation-enabled').value=anim.enabled===undefined?'auto':String(anim.enabled);
     byId('animation-period').value=anim.period_ms||'';byId('icon-repeat').value=anim.repeat||0;
     byId('scroll-mode').value=scroll.mode||'auto';byId('direction').value=scroll.direction||'left';
-    byId('step-ms').value=scroll.step_ms||80;byId('text-repeat').value=scroll.repeat===undefined?1:scroll.repeat;
+    byId('step-ms').value=scroll.step_ms||180;byId('text-repeat').value=scroll.repeat===undefined?1:scroll.repeat;
     byId('duration').value=command.duration_ms||'';
     preview(command);setNotice('已载入本地预览。');
   }

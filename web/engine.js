@@ -103,7 +103,7 @@
       } else {
         const raw = c.scroll === undefined ? {} : c.scroll;
         fields(raw,['mode','direction','step_ms','repeat']);
-        c.scroll = {mode:'auto',direction:'left',step_ms:80,repeat:1,...raw};
+        c.scroll = {mode:'auto',direction:'left',step_ms:180,repeat:1,...raw};
         if (!['auto','always','never'].includes(c.scroll.mode) || !['left','right'].includes(c.scroll.direction)) fail('invalid_scroll');
         integer(c.scroll.step_ms,20,60000,'invalid_period'); integer(c.scroll.repeat,0,65535,'invalid_repeat');
         const width = c.text.length*6-1;

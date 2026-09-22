@@ -38,7 +38,7 @@ USB 串口无需 `auth`，并额外提供两个仅限串口的配置命令：
 ```
 
 ```json
-{"id":4,"op":"text","text":"100%","scroll":{"mode":"auto","direction":"left","step_ms":80,"repeat":1},"color":{"mode":"solid","values":["green"]}}
+{"id":4,"op":"text","text":"100%","scroll":{"mode":"auto","direction":"left","step_ms":180,"repeat":1},"color":{"mode":"solid","values":["green"]}}
 ```
 
 | 参数 | 规则 |
@@ -50,7 +50,7 @@ USB 串口无需 `auth`，并额外提供两个仅限串口的配置命令：
 | `text` | 1～64 个 ASCII 可打印字符，保留前导零；不接受换行、中文 |
 | `scroll.mode` | auto 按宽度；always 强制；never 静态且超宽时报错 |
 | `scroll.direction` | left 默认；right 可选 |
-| `scroll.step_ms` | 每移动一像素的时间，默认 80 |
+| `scroll.step_ms` | 每移动一像素的时间，默认 180（约 5.6 像素/秒） |
 | `scroll.repeat` | 默认 1；0 无限；有限滚动完成后释放显示 |
 | `color.mode` | solid、step、gradient、rainbow_cycle、rainbow_flow |
 | `color.values` | solid 一个颜色；step/gradient 2～8 个颜色；彩虹使用预设七色 |

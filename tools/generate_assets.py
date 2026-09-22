@@ -444,7 +444,7 @@ def example_specs() -> list[dict]:
         ("loading_rainbow_breathe", "彩虹呼吸加载", "combo", show("loading", color={"mode": "rainbow_flow", "period_ms": 1200}, effect={"type": "breathe", "period_ms": 1200}), [200] * 6, 0),
     ]
     for asset_id, text in (("text_100", "100%"), ("text_007", "007"), ("text_3_14", "3.14"), ("text_hello", "HELLO"), ("text_25_left", "25% LEFT")):
-        command = {"id": 1, "op": "text", "text": text, "scroll": {"mode": "always", "direction": "left", "step_ms": 80, "repeat": 0}}
+        command = {"id": 1, "op": "text", "text": text, "scroll": {"mode": "always", "direction": "left", "step_ms": 180, "repeat": 0}}
         specs.append((asset_id, text, "text", command, [80] * (len(text) * 6 + 10), 640))
     specs.append(("pet", "宠物序列", "pet", {"id": 1, "op": "idle", "mode": "pet"}, [100] * 800, 0))
     return [
