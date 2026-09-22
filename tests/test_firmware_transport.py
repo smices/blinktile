@@ -24,6 +24,9 @@ def block(signature):
 
 
 def main():
+    assert SOURCE.index("#define WEBSOCKETS_SERVER_CLIENT_MAX") < SOURCE.index("#include <WebSocketsServer.h>")
+    assert SOURCE.count("!enqueueCommand(") == 4
+    assert "afterNext == queueTail" in SOURCE
     cpp = r'''
 #include <cassert>
 #include <cstdint>
@@ -86,7 +89,7 @@ int main() {
         path.write_text(cpp)
         subprocess.run(["c++", "-std=c++17", str(path), "-o", str(binary)], check=True)
         subprocess.run([str(binary)], check=True)
-    print("PASS firmware transport helpers: online AP guard, offline fallback, BLE session isolation")
+    print("PASS firmware transport helpers: client limit, queue backpressure, online AP guard, offline fallback, BLE session isolation")
 
 
 if __name__ == "__main__":

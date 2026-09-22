@@ -56,13 +56,7 @@ bash tools/build.sh
 模拟器仅监听本机；终端提供临时测试密钥、HTML 地址和 `ws://localhost:8765/ws`。在控制器中输入该地址和测试密钥，完成认证后发送。模拟器共用网页渲染逻辑，不能代替固件或灯板验收。
 
 ```sh
-.venv/bin/python tests/test_assets.py
-node tests/test_engine.cjs
-node tests/test_client.cjs
-.venv/bin/python tests/test_transport.py
-.venv/bin/python tests/test_firmware_render.py
-.venv/bin/python tests/test_firmware_transport.py
-.venv/bin/python tests/test_setup_page.py
+bash tools/test.sh
 ```
 
 固件渲染检查从当前 `.ino` 提取实际渲染函数，并与网页引擎逐帧比对；需要支持 C++17 的 `c++` 编译器和已安装的 ArduinoJson。配网页检查执行内嵌脚本并模拟 HTTP 响应。这些检查不验证 ESP32 无线、调度或电气行为。

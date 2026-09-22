@@ -1,3 +1,5 @@
+#define WEBSOCKETS_SERVER_CLIENT_MAX 4
+
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
 #include <ArduinoJson.h>
@@ -11,8 +13,6 @@
 #include <WiFi.h>
 
 #include "assets.h"
-
-#define WEBSOCKETS_SERVER_CLIENT_MAX 4
 
 namespace {
 
@@ -200,7 +200,8 @@ bool enqueueCommand(Source source, uint8_t client, const uint8_t *data, size_t l
   if (!data || length == 0 || length > kMaxRequest) return false;
   portENTER_CRITICAL(&queueMux);
   const uint8_t next = static_cast<uint8_t>((queueHead + 1) % kQueueSize);
-  if (next == queueTail) {
+  const uint8_t afterNext = static_cast<uint8_t>((next + 1) % kQueueSize);
+  if (next == queueTail || afterNext == queueTail) {
     portEXIT_CRITICAL(&queueMux);
     return false;
   }
@@ -1327,7 +1328,9 @@ class BleWriteCallbacks : public BLECharacteristicCallbacks {
         bleLength = 0;
         bleOverflow = false;
         portEXIT_CRITICAL(&queueMux);
-        enqueueCommand(SOURCE_BLE, 0, reinterpret_cast<uint8_t *>(line), length, session);
+        if (!enqueueCommand(SOURCE_BLE, 0, reinterpret_cast<uint8_t *>(line), length, session)) {
+          enqueueTransportError(SOURCE_BLE, 0, "queue_full", session);
+        }
         portENTER_CRITICAL(&queueMux);
       } else if (bleLength < kMaxRequest) {
         bleBuffer[bleLength++] = static_cast<char>(byte);
@@ -1367,7 +1370,9 @@ void webSocketEvent(uint8_t client, WStype_t type, uint8_t *payload, size_t leng
     wsFragmentLength[client] = 0;
     wsFragmentOverflow[client] = false;
   } else if (type == WStype_TEXT) {
-    if (length <= kMaxRequest) enqueueCommand(SOURCE_WS, client, payload, length);
+    if (length <= kMaxRequest) {
+      if (!enqueueCommand(SOURCE_WS, client, payload, length)) enqueueTransportError(SOURCE_WS, client, "queue_full");
+    }
     else enqueueTransportError(SOURCE_WS, client, "request_too_large");
   } else if (type == WStype_FRAGMENT_TEXT_START) {
     wsFragmentLength[client] = 0;
@@ -1384,8 +1389,9 @@ void webSocketEvent(uint8_t client, WStype_t type, uint8_t *payload, size_t leng
       wsFragmentLength[client] += length;
     }
     if (wsFragmentOverflow[client]) enqueueTransportError(SOURCE_WS, client, "request_too_large");
-    else if (wsFragmentLength[client]) enqueueCommand(SOURCE_WS, client, reinterpret_cast<uint8_t *>(wsFragments[client]), wsFragmentLength[client]);
-    else enqueueTransportError(SOURCE_WS, client, "empty_request");
+    else if (wsFragmentLength[client]) {
+      if (!enqueueCommand(SOURCE_WS, client, reinterpret_cast<uint8_t *>(wsFragments[client]), wsFragmentLength[client])) enqueueTransportError(SOURCE_WS, client, "queue_full");
+    } else enqueueTransportError(SOURCE_WS, client, "empty_request");
     wsFragmentLength[client] = 0;
     wsFragmentOverflow[client] = false;
   }
@@ -1398,7 +1404,7 @@ void serialTick() {
   while (Serial.available()) {
     const uint8_t byte = Serial.read();
     if (byte == '\n') {
-      if (!overflow && length) enqueueCommand(SOURCE_SERIAL, 0, reinterpret_cast<uint8_t *>(buffer), length);
+      if (!overflow && length && !enqueueCommand(SOURCE_SERIAL, 0, reinterpret_cast<uint8_t *>(buffer), length)) enqueueTransportError(SOURCE_SERIAL, 0, "queue_full");
       else if (overflow) enqueueTransportError(SOURCE_SERIAL, 0, "request_too_large");
       length = 0;
       overflow = false;
