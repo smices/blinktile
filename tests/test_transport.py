@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import socket
+import signal
 import subprocess
 import sys
 import time
@@ -70,7 +71,7 @@ if __name__ == '__main__':
     proc = subprocess.Popen(
         [sys.executable, str(ROOT / 'tools/simulator.py'), '--http-port', str(http_port), '--ws-port', str(ws_port)],
         env={**os.environ, 'ICONSHOW_SIM_TOKEN': TOKEN},
-        stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
+        stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True, start_new_session=True,
     )
     try:
         deadline = time.monotonic() + 8
@@ -95,9 +96,11 @@ console.log('PASS actual JavaScript client to WebSocket simulator');})().catch(e
         subprocess.run(['node','-e',script,f'ws://127.0.0.1:{ws_port}/ws'],cwd=ROOT,
           env={**os.environ,'ICONSHOW_SIM_TOKEN':TOKEN},check=True,timeout=15)
     finally:
-        proc.terminate()
+        if proc.poll() is None:
+            os.killpg(proc.pid, signal.SIGINT)
         try:
             proc.wait(timeout=5)
         except subprocess.TimeoutExpired:
             proc.kill()
             proc.wait()
+        assert proc.returncode == 0, 'simulator shutdown failed: ' + proc.stderr.read()[-1000:]

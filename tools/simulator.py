@@ -101,7 +101,11 @@ async def run(args):
     finally:
         http_server.shutdown()
         http_server.server_close()
-        bridge.terminate()
+        if bridge.returncode is None:
+            try:
+                bridge.terminate()
+            except ProcessLookupError:
+                pass  # The process group may already have received Ctrl-C.
         await bridge.wait()
 
 
