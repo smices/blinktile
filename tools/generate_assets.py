@@ -86,6 +86,7 @@ process.stdout.write(JSON.stringify(request.times.map(time => engine.frame(time)
 def engine_frames(commands: list[dict], times: list[int]) -> list[list[tuple[int, int, int]]]:
     """Use the browser engine as the sole pixel renderer for published assets."""
 
+    commands = [{"id": 2147483647, "op": "brightness", "value": 217}, *commands]
     result = subprocess.run(
         ["node", "-e", NODE_RENDERER], cwd=ROOT,
         input=json.dumps({"commands": commands, "times": times}),
@@ -266,16 +267,16 @@ STATIC_PATTERNS = {
         "..####..", ".##.....", ".##.....", "########", "##.##.##", "##....##", "########", "........"
     ),
     "arrow_up": (
-        "...##...", "..###...", ".#####..", "...##...", "...##...", "...##...", "...##...", "........"
+        "...#....", "..###...", ".#####..", "...#....", "...#....", "...#....", "...#....", "...#...."
     ),
     "arrow_down": (
-        "...##...", "...##...", "...##...", "...##...", ".#####..", "..###...", "...##...", "........"
+        "...#....", "...#....", "...#....", "...#....", "...#....", ".#####..", "..###...", "...#...."
     ),
     "arrow_left": (
-        "...##...", "..##....", ".######.", "########", ".######.", "..##....", "...##...", "........"
+        "...#....", "..##....", ".###....", "########", ".###....", "..##....", "...#....", "........"
     ),
     "arrow_right": (
-        "...##...", "....##..", ".######.", "########", ".######.", "....##..", "...##...", "........"
+        "....#...", "....##..", "....###.", "########", "....###.", "....##..", "....#...", "........"
     ),
     "sad": (
         "........", ".##..##.", ".##..##.", "........", "........", "..####..", ".##..##.", "........"
@@ -488,7 +489,7 @@ def write_contact_sheets(records: dict[str, dict], asset_manifest: dict) -> None
             preview = source.convert("RGB").resize((64, 64), Image.Resampling.NEAREST)
         sheet.paste(preview, (x + (card_width - 64) // 2, y + 3))
         draw.text((x + 4, y + 70), icon_id, fill=(255, 255, 255))
-    draw.text((4, 1), "IconShow icons | final output brightness 64/255", fill=(180, 180, 180))
+    draw.text((4, 1), "IconShow icons | preview brightness 85%", fill=(180, 180, 180))
     sheet.save(ASSET_DIR / "contact-sheet.png", format="PNG", optimize=False)
 
     animation_ids = [icon_id for icon_id, record in records.items() if len(record["frames"]) > 1]
@@ -506,7 +507,7 @@ def write_contact_sheets(records: dict[str, dict], asset_manifest: dict) -> None
                 source.seek(source_index)
                 frame = source.convert("RGB").resize((16, 16), Image.Resampling.NEAREST)
                 strip.paste(frame, (label_width + frame_index * tile + 2, row * strip_height + 8))
-    draw.text((4, 1), "Animation samples | final output brightness 64/255", fill=(180, 180, 180))
+    draw.text((4, 1), "Animation samples | preview brightness 85%", fill=(180, 180, 180))
     strip.save(ASSET_DIR / "animation-strip.png", format="PNG", optimize=False)
 
 

@@ -92,7 +92,7 @@ int main(){
    render(now);
    JsonArray frame=response["frame"].to<JsonArray>();
    for(int i=0;i<64;i++){
-    int x=i%8,y=i/8; uint32_t c=pixels.values[y*8+(y%2?7-x:x)];
+    uint32_t c=pixels.values[i];
     JsonArray p=frame.add<JsonArray>(); p.add((c>>16)&255);p.add((c>>8)&255);p.add(c&255);
    }
   }else response["error"]=error?error:"rejected";

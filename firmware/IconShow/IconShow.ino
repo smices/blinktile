@@ -24,7 +24,7 @@ constexpr uint8_t kQueueSize = 8;
 constexpr uint32_t kBleTimeoutMs = 2000;
 constexpr uint32_t kWifiAttemptMs = 30000;
 constexpr uint32_t kApGraceMs = 15000;
-constexpr uint8_t kDefaultBrightness = 64;
+constexpr uint8_t kDefaultBrightness = 3;
 constexpr uint16_t kDefaultColorPeriod = 5000;
 constexpr uint16_t kDefaultEffectPeriod = 2000;
 constexpr uint16_t kDefaultScrollStep = 80;
@@ -698,7 +698,7 @@ void showFrame(uint8_t frame[kPixels], const ColorSpec &color, const EffectSpec 
       const uint8_t red = static_cast<uint8_t>(rounded[logical][0] * scale);
       const uint8_t green = static_cast<uint8_t>(rounded[logical][1] * scale);
       const uint8_t blue = static_cast<uint8_t>(rounded[logical][2] * scale);
-      const uint16_t physical = y % 2 ? y * 8 + (7 - x) : logical;
+      const uint16_t physical = logical;
       pixels.setPixelColor(physical, pixels.Color(red, green, blue));
     }
   }

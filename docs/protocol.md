@@ -59,7 +59,7 @@ USB 串口无需 `auth`，并额外提供两个仅限串口的配置命令：
 | `effect.type` | none 默认、breathe、alternate、blink |
 | `effect.period_ms` | 明暗循环，默认 2000 |
 | `effect.min/max` | 相对亮度 0～255，默认 0/255，min 不得高于 max；blink 的 min 必须为 0 |
-| `brightness` | 可选，0～255，改变全局用户亮度；开机 64（25%） |
+| `brightness` | 可选，0～255，改变全局用户亮度；开机 3（约 1%） |
 | `duration_ms` | 0 或省略不限时；正数为墙钟有效时间，最大一天 |
 
 固定字形为 5×7，字符间隔一列，宽度为 `6×字符数−1`。静态内容居中；滚动从屏幕外开始，完全离开后有三列空白再开始下一轮。短文本 auto 模式静态显示，不因 repeat 自动结束，可使用 duration_ms。

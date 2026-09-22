@@ -14,7 +14,7 @@ const engine = fresh();
 assert(!lit(engine.frame(0)), 'boot must be dark');
 ok(engine, {id: 1, op: 'show', icon: 'success'});
 assert(lit(engine.frame(0)), 'success must be visible');
-assert(Math.max(...engine.frame(0).flat()) <= 64, 'default brightness must be 25%');
+assert(Math.max(...engine.frame(0).flat()) <= 3, 'default brightness must be 1%');
 const before = engine.frame(0);
 assert.equal(engine.execute({id: 2, op: 'show', icon: 'nonexistent'}, 0).ok, false);
 assert.deepEqual(engine.frame(0), before, 'invalid command must preserve display');
@@ -63,7 +63,7 @@ ok(power, {id:17,op:'brightness',value:255});
 ok(power, {id:18,op:'show',icon:'heart',color:{mode:'solid',values:['white']}});
 const estimated = 64 + power.frame(0).flat().reduce((a,b)=>a+b,0)*20/255;
 assert(estimated <= 501, `power budget: ${estimated}`);
-console.log('PASS engine: atomic validation, 25% brightness, TTL, pause, renewal, pet, text, speed, power');
+console.log('PASS engine: atomic validation, 1% brightness, TTL, pause, renewal, pet, text, speed, power');
 
 const modes = fresh();
 for (const mode of ['solid','step','gradient','rainbow_cycle','rainbow_flow']) {
