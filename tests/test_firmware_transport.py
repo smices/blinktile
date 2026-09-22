@@ -24,9 +24,11 @@ def block(signature):
 
 
 def main():
-    assert SOURCE.index("#define WEBSOCKETS_SERVER_CLIENT_MAX") < SOURCE.index("#include <WebSocketsServer.h>")
+    assert "#define WEBSOCKETS_SERVER_CLIENT_MAX" not in SOURCE
     assert SOURCE.count("!enqueueCommand(") == 4
     assert "afterNext == queueTail" in SOURCE
+    setup = block("void firmwareSetup(")
+    assert setup.index("initWifi();") < setup.index("setupHttp();") < setup.index("webSocket.begin();")
     cpp = r'''
 #include <cassert>
 #include <cstdint>

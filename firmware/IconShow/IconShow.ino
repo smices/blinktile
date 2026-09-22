@@ -1,5 +1,3 @@
-#define WEBSOCKETS_SERVER_CLIENT_MAX 4
-
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
 #include <ArduinoJson.h>
@@ -1664,11 +1662,11 @@ void firmwareSetup() {
   state.brightness = kDefaultBrightness;
   resetPhase(millis());
   loadSecrets();
+  initWifi();
   setupHttp();
   setupBle();
   webSocket.begin();
   webSocket.onEvent(webSocketEvent);
-  initWifi();
 }
 
 void firmwareLoop() {
