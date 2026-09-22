@@ -516,9 +516,9 @@ bool clockText(char out[6]) {
   return true;
 }
 
-void showPetClock(uint32_t now) {
+bool showPetClock(uint32_t now) {
   char text[6];
-  if (!clockText(text)) return;
+  if (!clockText(text)) return false;
   RenderState next;
   next.mode = MODE_TEXT;
   strncpy(next.text, text, sizeof(next.text) - 1);
@@ -531,6 +531,7 @@ void showPetClock(uint32_t now) {
   applyRenderState(next, now);
   petClockPending = false;
   nextPetClockAt = now + kClockMinDelayMs + esp_random() % kClockDelayRangeMs;
+  return true;
 }
 
 void petClockTick(uint32_t now) {
@@ -1620,6 +1621,11 @@ void handleRequest(const QueueItem &item, uint32_t now) {
     struct timeval value = {static_cast<time_t>(epoch), 0};
     settimeofday(&value, nullptr);
     utcOffsetMinutes = offset;
+    sendOk(item.source, item.client, root);
+    return;
+  }
+  if (strcmp(op, "time") == 0) {
+    if (!showPetClock(now)) { sendError(item.source, item.client, root, "clock_unavailable"); return; }
     sendOk(item.source, item.client, root);
     return;
   }

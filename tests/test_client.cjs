@@ -26,6 +26,8 @@ global.WebSocket=Socket;
   const clock=client.syncClock();const clockWire=b.sent.at(-1);
   assert.equal(clockWire.op,'clock');assert(Number.isInteger(clockWire.epoch));assert(Number.isInteger(clockWire.utc_offset_min));
   b.onmessage({data:JSON.stringify({id:clockWire.id,ok:true})});assert((await clock).ok);
+  const showTime=client.showTime();const timeWire=b.sent.at(-1);assert.equal(timeWire.op,'time');
+  b.onmessage({data:JSON.stringify({id:timeWire.id,ok:true})});assert((await showTime).ok);
   client.disconnect();
   const unopened=client.connectWebSocket('ws://third/ws','test').catch(e=>e.message);
   client.disconnect();

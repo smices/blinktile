@@ -77,6 +77,7 @@ USB 串口无需 `auth`，并额外提供两个仅限串口的配置命令：
 | `pause` / `resume` | 冻结／继续当前画面的所有动画相位，有效时长继续消耗 |
 | `idle` + `mode` | pet 或 off，只修改空闲方式，不覆盖临时内容 |
 | `clock` + `epoch` + `utc_offset_min` | 校准 Unix 秒和 UTC 分钟偏移；浏览器连接时自动发送 |
+| `time` | 立即以 24 小时制滚动显示当前 `HH:MM`，结束后返回空闲模式 |
 | `release` | 释放临时内容，桌宠从 smile 重新开始 |
 | `keepalive` + `target_id` | 仅匹配当前显示 ID 才续原有效时长，不重启动画 |
 | `off` | 清除显示、计时和桌宠；不会被 resume 重新点亮 |
