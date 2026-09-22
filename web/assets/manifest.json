@@ -1,0 +1,240 @@
+{
+  "version": 1,
+  "examples": [
+    {
+      "id": "rainbow_cycle",
+      "label": "彩虹循环",
+      "file": "assets/rainbow_cycle.gif",
+      "kind": "effect",
+      "command": {
+        "id": 1,
+        "op": "show",
+        "icon": "loading",
+        "animation": {
+          "enabled": false
+        },
+        "color": {
+          "mode": "rainbow_cycle",
+          "period_ms": 1200
+        }
+      },
+      "poster": "assets/rainbow_cycle.png"
+    },
+    {
+      "id": "rainbow_flow",
+      "label": "彩虹流动",
+      "file": "assets/rainbow_flow.gif",
+      "kind": "effect",
+      "command": {
+        "id": 1,
+        "op": "show",
+        "icon": "loading",
+        "animation": {
+          "enabled": false
+        },
+        "color": {
+          "mode": "rainbow_flow",
+          "period_ms": 1200
+        }
+      },
+      "poster": "assets/rainbow_flow.png"
+    },
+    {
+      "id": "breathe",
+      "label": "呼吸",
+      "file": "assets/breathe.gif",
+      "kind": "effect",
+      "command": {
+        "id": 1,
+        "op": "show",
+        "icon": "heart",
+        "animation": {
+          "enabled": false
+        },
+        "color": {
+          "mode": "solid",
+          "values": [
+            "cyan"
+          ]
+        },
+        "effect": {
+          "type": "breathe",
+          "period_ms": 1200
+        }
+      },
+      "poster": "assets/breathe.png"
+    },
+    {
+      "id": "alternate",
+      "label": "交替",
+      "file": "assets/alternate.gif",
+      "kind": "effect",
+      "command": {
+        "id": 1,
+        "op": "show",
+        "icon": "heart",
+        "animation": {
+          "enabled": false
+        },
+        "color": {
+          "mode": "solid",
+          "values": [
+            "white"
+          ]
+        },
+        "effect": {
+          "type": "alternate",
+          "period_ms": 1200
+        }
+      },
+      "poster": "assets/alternate.png"
+    },
+    {
+      "id": "blink",
+      "label": "闪烁",
+      "file": "assets/blink.gif",
+      "kind": "effect",
+      "command": {
+        "id": 1,
+        "op": "show",
+        "icon": "heart",
+        "animation": {
+          "enabled": false
+        },
+        "color": {
+          "mode": "solid",
+          "values": [
+            "white"
+          ]
+        },
+        "effect": {
+          "type": "blink",
+          "period_ms": 1000
+        }
+      },
+      "poster": "assets/blink.png"
+    },
+    {
+      "id": "loading_rainbow_breathe",
+      "label": "彩虹呼吸加载",
+      "file": "assets/loading_rainbow_breathe.gif",
+      "kind": "combo",
+      "command": {
+        "id": 1,
+        "op": "show",
+        "icon": "loading",
+        "color": {
+          "mode": "rainbow_flow",
+          "period_ms": 1200
+        },
+        "effect": {
+          "type": "breathe",
+          "period_ms": 1200
+        }
+      },
+      "poster": "assets/loading_rainbow_breathe.png"
+    },
+    {
+      "id": "text_100",
+      "label": "100%",
+      "file": "assets/text_100.gif",
+      "kind": "text",
+      "command": {
+        "id": 1,
+        "op": "text",
+        "text": "100%",
+        "scroll": {
+          "mode": "always",
+          "direction": "left",
+          "step_ms": 80,
+          "repeat": 0
+        }
+      },
+      "poster": "assets/text_100.png"
+    },
+    {
+      "id": "text_007",
+      "label": "007",
+      "file": "assets/text_007.gif",
+      "kind": "text",
+      "command": {
+        "id": 1,
+        "op": "text",
+        "text": "007",
+        "scroll": {
+          "mode": "always",
+          "direction": "left",
+          "step_ms": 80,
+          "repeat": 0
+        }
+      },
+      "poster": "assets/text_007.png"
+    },
+    {
+      "id": "text_3_14",
+      "label": "3.14",
+      "file": "assets/text_3_14.gif",
+      "kind": "text",
+      "command": {
+        "id": 1,
+        "op": "text",
+        "text": "3.14",
+        "scroll": {
+          "mode": "always",
+          "direction": "left",
+          "step_ms": 80,
+          "repeat": 0
+        }
+      },
+      "poster": "assets/text_3_14.png"
+    },
+    {
+      "id": "text_hello",
+      "label": "HELLO",
+      "file": "assets/text_hello.gif",
+      "kind": "text",
+      "command": {
+        "id": 1,
+        "op": "text",
+        "text": "HELLO",
+        "scroll": {
+          "mode": "always",
+          "direction": "left",
+          "step_ms": 80,
+          "repeat": 0
+        }
+      },
+      "poster": "assets/text_hello.png"
+    },
+    {
+      "id": "text_25_left",
+      "label": "25% LEFT",
+      "file": "assets/text_25_left.gif",
+      "kind": "text",
+      "command": {
+        "id": 1,
+        "op": "text",
+        "text": "25% LEFT",
+        "scroll": {
+          "mode": "always",
+          "direction": "left",
+          "step_ms": 80,
+          "repeat": 0
+        }
+      },
+      "poster": "assets/text_25_left.png"
+    },
+    {
+      "id": "pet",
+      "label": "宠物序列",
+      "file": "assets/pet.gif",
+      "kind": "pet",
+      "command": {
+        "id": 1,
+        "op": "idle",
+        "mode": "pet"
+      },
+      "poster": "assets/pet.png"
+    }
+  ]
+}
