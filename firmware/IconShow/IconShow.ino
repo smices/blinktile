@@ -1456,7 +1456,7 @@ class BleWriteCallbacks : public BLECharacteristicCallbacks {
 };
 
 void setupBle() {
-  BLEDevice::init("IconShow");
+  BLEDevice::init("BlinkTile");
   bleServer = BLEDevice::createServer();
   bleServer->setCallbacks(new BleServerCallbacks());
   BLEService *service = bleServer->createService("6d8f0000-6f52-4af0-9a2c-7b6143b8e100");

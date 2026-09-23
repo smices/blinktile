@@ -17,7 +17,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'codex-status'))
-from codex_status import ACTOR_TIMEOUT, SerialDevice, StatusBridge  # noqa: E402
+from codex_status import (ACTOR_TIMEOUT, BLE_NOTIFY_UUID, BLE_SERVICE_UUID, BLE_WRITE_UUID,
+                          BleDevice, SerialDevice, StatusBridge, find_ble_device)  # noqa: E402
 
 
 class FakeDevice:
@@ -59,6 +60,31 @@ class FakeSerial:
 
     def readline(self):
         return self.lines.pop(0) if self.lines else b''
+
+
+class FakeBleClient:
+    def __init__(self):
+        self.writes = []
+        self.write_uuids = []
+        self.request = bytearray()
+        self.notify = None
+        self.notify_uuid = None
+
+    async def start_notify(self, uuid, callback):
+        self.notify_uuid = uuid
+        self.notify = callback
+
+    async def write_gatt_char(self, uuid, data, response):
+        self.write_uuids.append(uuid)
+        self.writes.append(bytes(data))
+        self.request.extend(data)
+        self.assert_response = response
+        if self.request.endswith(b'\n'):
+            command = json.loads(self.request)
+            reply = json.dumps({'id': command['id'], 'ok': True, 'padding': 'x' * 41},
+                               separators=(',', ':')).encode() + b'\n'
+            for offset in range(0, len(reply), 13):
+                self.notify(None, reply[offset:offset + 13])
 
 
 class CodexStatusTests(unittest.TestCase):
@@ -109,6 +135,47 @@ class CodexStatusTests(unittest.TestCase):
             reply = await device.command({'id': 7, 'op': 'get'})
             self.assertEqual(reply, {'id': 7, 'ok': True})
             self.assertEqual(serial.writes, [b'{"id":7,"op":"get"}\n'])
+
+        asyncio.run(exercise())
+
+    def test_ble_chunks_writes_and_assembles_notification_line(self):
+        async def exercise():
+            client = FakeBleClient()
+            device = BleDevice(client)
+            await device.start()
+            command = {'id': 17, 'op': 'auth', 'token': 'test-token'}
+            reply = await device.command(command)
+            self.assertEqual(reply['id'], 17)
+            self.assertTrue(reply['ok'])
+            wire = json.dumps(command, separators=(',', ':')).encode() + b'\n'
+            self.assertEqual(b''.join(client.writes), wire)
+            self.assertTrue(all(0 < len(chunk) <= 20 for chunk in client.writes))
+            self.assertEqual(set(client.write_uuids), {BLE_WRITE_UUID})
+            self.assertEqual(client.notify_uuid, BLE_NOTIFY_UUID)
+            self.assertTrue(client.assert_response)
+
+        asyncio.run(exercise())
+
+    def test_ble_device_selection_requires_unique_match(self):
+        async def exercise():
+            first = type('Device', (), {'name': None, 'address': 'AA:BB'})()
+            second = type('Device', (), {'name': 'BlinkTile', 'address': 'CC:DD'})()
+            ad = type('Advertisement', (), {'local_name': 'BlinkTile'})()
+
+            class Scanner:
+                result = {'a': (first, ad), 'b': (second, ad)}
+                options = None
+
+                @classmethod
+                async def discover(cls, **kwargs):
+                    cls.options = kwargs
+                    return cls.result
+
+            with self.assertRaisesRegex(ValueError, '--ble-address'):
+                await find_ble_device(Scanner)
+            selected = await find_ble_device(Scanner, address='cc:dd')
+            self.assertIs(selected, second)
+            self.assertEqual(Scanner.options['service_uuids'], [BLE_SERVICE_UUID])
 
         asyncio.run(exercise())
 

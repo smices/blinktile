@@ -24,6 +24,7 @@ def block(signature):
 
 
 def main():
+    assert 'BLEDevice::init("BlinkTile")' in SOURCE, 'BLE advertisement must use the product name'
     assert "#define WEBSOCKETS_SERVER_CLIENT_MAX" not in SOURCE
     assert SOURCE.count("!enqueueCommand(") == 4
     assert "afterNext == queueTail" in SOURCE

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Forward sanitized Codex hook events to an IconShow device on localhost."""
+"""Forward sanitized localhost Codex hook events to a BlinkTile device."""
 import argparse
 import asyncio
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -20,6 +20,11 @@ IDENTIFIER = re.compile(r'^[A-Za-z0-9_.:-]{1,128}$')
 MAX_BODY = 4096
 TTL_MS = 15000
 ACTOR_TIMEOUT = 10 * 60
+BLE_SERVICE_UUID = '6d8f0000-6f52-4af0-9a2c-7b6143b8e100'
+BLE_WRITE_UUID = '6d8f0001-6f52-4af0-9a2c-7b6143b8e100'
+BLE_NOTIFY_UUID = '6d8f0002-6f52-4af0-9a2c-7b6143b8e100'
+BLE_CHUNK_SIZE = 20
+BLE_MAX_RESPONSE = 2048
 
 
 def safe_identifier(value):
@@ -203,7 +208,77 @@ class SerialDevice:
                     continue  # Ignore boot diagnostics and blank serial lines.
                 if isinstance(reply, dict) and reply.get('id') == command['id']:
                     return reply
-        raise TimeoutError('IconShow serial response timed out')
+        raise TimeoutError('BlinkTile serial response timed out')
+
+
+class BleDevice:
+    def __init__(self, client):
+        self.client = client
+        self.lines = asyncio.Queue()
+        self.buffer = bytearray()
+        self.overflow = False
+        self.lock = asyncio.Lock()
+
+    async def start(self):
+        await self.client.start_notify(BLE_NOTIFY_UUID, self._notification)
+
+    def _notification(self, _characteristic, data):
+        for byte in data:
+            if byte == 10:
+                if self.overflow:
+                    self.lines.put_nowait(ValueError('BlinkTile BLE response is too large'))
+                elif self.buffer:
+                    self.lines.put_nowait(bytes(self.buffer))
+                self.buffer.clear()
+                self.overflow = False
+            elif not self.overflow:
+                if len(self.buffer) >= BLE_MAX_RESPONSE:
+                    self.buffer.clear()
+                    self.overflow = True
+                else:
+                    self.buffer.append(byte)
+
+    async def command(self, command):
+        async with self.lock:
+            payload = (json.dumps(command, separators=(',', ':')) + '\n').encode()
+            if len(payload) > 513:
+                raise ValueError('BlinkTile request is too large')
+            for offset in range(0, len(payload), BLE_CHUNK_SIZE):
+                await self.client.write_gatt_char(
+                    BLE_WRITE_UUID, payload[offset:offset + BLE_CHUNK_SIZE], response=True)
+            deadline = asyncio.get_running_loop().time() + 5
+            while True:
+                remaining = deadline - asyncio.get_running_loop().time()
+                if remaining <= 0:
+                    raise TimeoutError('BlinkTile BLE response timed out')
+                line = await asyncio.wait_for(self.lines.get(), timeout=remaining)
+                if isinstance(line, Exception):
+                    raise line
+                try:
+                    reply = json.loads(line)
+                except (UnicodeDecodeError, json.JSONDecodeError):
+                    continue
+                if isinstance(reply, dict) and reply.get('id') == command.get('id'):
+                    return reply
+
+
+async def find_ble_device(scanner, name='BlinkTile', address=None, timeout=8):
+    found = await scanner.discover(timeout=timeout, return_adv=True,
+                                   service_uuids=[BLE_SERVICE_UUID])
+    devices = [pair for pair in found.values()]
+    if address:
+        matches = [device for device, _advertisement in devices
+                   if device.address.casefold() == address.casefold()]
+    else:
+        matches = [device for device, advertisement in devices
+                   if (advertisement.local_name or device.name) == name]
+    if not matches:
+        target = f'BLE address {address}' if address else f'BLE device named {name!r}'
+        raise ValueError(f'No BlinkTile {target} found; check that Bluetooth is on and the device is advertising')
+    if len(matches) > 1:
+        candidates = ', '.join(f'{device.name or "BlinkTile"} ({device.address})' for device in matches)
+        raise ValueError(f'Multiple BlinkTile BLE devices found: {candidates}; select one with --ble-address')
+    return matches[0]
 
 
 async def serve_hooks(args, device):
@@ -252,11 +327,35 @@ async def run_bridge(args):
         auth = await device.command({'id': 1, 'op': 'auth'})
         if not isinstance(auth, dict) or auth.get('ok') is not True:
             device.serial.close()
-            raise ValueError('IconShow serial authentication failed')
+            raise ValueError('BlinkTile serial authentication failed')
         try:
             await serve_hooks(args, device)
         finally:
             device.serial.close()
+        return
+
+    if args.ble:
+        token = os.environ.get(args.token_env)
+        if not token:
+            raise ValueError(f'missing token environment variable: {args.token_env}')
+        try:
+            from bleak import BleakClient, BleakScanner
+            from bleak.exc import BleakError
+        except ImportError as error:
+            raise ValueError("BLE mode requires optional dependency 'bleak'; install it with 'python3 -m pip install bleak'") from error
+        try:
+            peripheral = await find_ble_device(
+                BleakScanner, name=args.ble_name, address=args.ble_address,
+                timeout=args.ble_scan_seconds)
+            async with BleakClient(peripheral) as client:
+                device = BleDevice(client)
+                await device.start()
+                auth = await device.command({'id': 1, 'op': 'auth', 'token': token})
+                if not isinstance(auth, dict) or auth.get('ok') is not True:
+                    raise ValueError('BlinkTile BLE authentication failed')
+                await serve_hooks(args, device)
+        except BleakError as error:
+            raise ValueError(f'Bluetooth operation failed: {type(error).__name__}') from None
         return
 
     from websockets.asyncio.client import connect
@@ -268,7 +367,7 @@ async def run_bridge(args):
         device = Device(ws)
         auth = await device.command({'id': 1, 'op': 'auth', 'token': token})
         if not isinstance(auth, dict) or auth.get('ok') is not True:
-            raise ValueError('IconShow authentication failed')
+            raise ValueError('BlinkTile authentication failed')
         await serve_hooks(args, device)
 
 
@@ -277,13 +376,23 @@ def main():
     sub = parser.add_subparsers(dest='mode', required=True)
     hook_parser = sub.add_parser('hook', help='forward sanitized hook stdin')
     hook_parser.add_argument('--port', type=int, default=8766)
-    bridge_parser = sub.add_parser('bridge', help='serve localhost hooks and drive IconShow')
+    bridge_parser = sub.add_parser('bridge', help='serve localhost hooks and drive BlinkTile')
     transport = bridge_parser.add_mutually_exclusive_group()
     transport.add_argument('--ws-url', default='ws://127.0.0.1:8765/ws')
     transport.add_argument('--serial-port', help='USB serial device path (115200 baud)')
     bridge_parser.add_argument('--token-env', default='ICONSHOW_TOKEN')
     bridge_parser.add_argument('--listen-port', type=int, default=8766)
+    transport.add_argument('--ble', action='store_true', help='connect to BlinkTile over Bluetooth LE')
+    bridge_parser.add_argument('--ble-name', default='BlinkTile', help='advertised BLE device name (default: BlinkTile)')
+    bridge_parser.add_argument('--ble-address', help='BLE address/UUID to select when multiple devices are nearby')
+    bridge_parser.add_argument('--ble-scan-seconds', type=float, default=8,
+                               help='BLE scan duration before selecting a device (default: 8)')
     args = parser.parse_args()
+    if args.mode == 'bridge':
+        if args.ble_address and not args.ble:
+            parser.error('--ble-address requires --ble')
+        if not 0 < args.ble_scan_seconds <= 120:
+            parser.error('--ble-scan-seconds must be between 0 and 120')
     if args.mode == 'hook':
         try:
             value = json.load(sys.stdin)
