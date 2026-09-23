@@ -32,6 +32,8 @@ constexpr uint16_t kDefaultEffectPeriod = 2000;
 constexpr uint16_t kDefaultScrollStep = 180;
 constexpr uint32_t kClockMinDelayMs = 120000;
 constexpr uint32_t kClockDelayRangeMs = 300001;
+constexpr uint16_t kMatrixFallStepMs = 250;
+constexpr uint8_t kMatrixLaneCount = 2;
 constexpr time_t kValidEpoch = 1700000000;
 constexpr float kPi = 3.14159265358979323846f;
 
@@ -113,6 +115,9 @@ uint32_t petMoodStarted = 0;
 uint32_t petMoodUntil = 0;
 uint32_t petMoodColor = 0xFFD040;
 uint16_t petMoodPeriod = 5000;
+char matrixGlyphs[kMatrixLaneCount] = {};
+char matrixTrailGlyphs[kMatrixLaneCount] = {};
+uint32_t matrixCycles[kMatrixLaneCount] = {UINT32_MAX, UINT32_MAX};
 float speed = 1.0f;
 bool paused = false;
 uint32_t phaseRealOrigin = 0;
@@ -500,6 +505,10 @@ void enterIdle(uint32_t now, IdleMode mode) {
   resetPhase(now);
   state.virtualStarted = 0;
   petMoodUntil = 0;
+  for (uint8_t lane = 0; lane < kMatrixLaneCount; ++lane) {
+    matrixGlyphs[lane] = matrixTrailGlyphs[lane] = 0;
+    matrixCycles[lane] = UINT32_MAX;
+  }
   frameDirty = true;
 }
 
@@ -681,27 +690,79 @@ uint16_t iconFrameAt(const IconDef *icon, const AnimationSpec &animation, uint32
   return icon->frameCount - 1;
 }
 
+void drawMatrixRain(uint8_t frame[kPixels], uint32_t phase) {
+  static const uint8_t xPositions[kMatrixLaneCount] = {0, 5};
+  static const char glyphs[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  constexpr uint32_t kCycleSteps = 13;
+  for (uint8_t lane = 0; lane < kMatrixLaneCount; ++lane) {
+    const uint32_t lanePhase = phase + static_cast<uint32_t>(lane) * 6 * kMatrixFallStepMs;
+    const uint32_t step = lanePhase / kMatrixFallStepMs;
+    const uint32_t cycle = step / kCycleSteps;
+    if (matrixCycles[lane] != cycle) {
+      matrixCycles[lane] = cycle;
+      matrixTrailGlyphs[lane] = matrixGlyphs[lane];
+      matrixGlyphs[lane] = glyphs[esp_random() % (sizeof(glyphs) - 1)];
+    }
+    for (uint8_t trail = 0; trail < 2; ++trail) {
+      const char character = trail ? matrixTrailGlyphs[lane] : matrixGlyphs[lane];
+      if (character < 32) continue;
+      const uint8_t glyph = static_cast<uint8_t>(character - 32);
+      const int8_t top = static_cast<int8_t>(step % kCycleSteps) - 4 - (trail ? 6 : 0);
+      for (uint8_t col = 0; col < 3; ++col) {
+        const uint8_t firstSourceCol = col == 0 ? 0 : col == 1 ? 2 : 3;
+        const uint8_t lastSourceCol = col == 0 ? 1 : col == 1 ? 2 : 4;
+        for (uint8_t row = 0; row < 5; ++row) {
+          const uint8_t firstSourceRow = row == 0 ? 0 : row == 4 ? 5 : row + 1;
+          const uint8_t lastSourceRow = row == 0 ? 1 : row == 4 ? 6 : firstSourceRow;
+          bool lit = false;
+          for (uint8_t sourceCol = firstSourceCol; sourceCol <= lastSourceCol; ++sourceCol) {
+            const uint8_t bits = pgm_read_byte(&FONT[glyph][sourceCol]);
+            for (uint8_t sourceRow = firstSourceRow; sourceRow <= lastSourceRow; ++sourceRow) {
+              lit = lit || (bits & (1U << sourceRow));
+            }
+          }
+          const int8_t y = top + row;
+          const uint8_t x = xPositions[lane] + col;
+          if (lit && y >= 0 && y < kHeight) frame[y * kWidth + x] = trail ? 64 : 255;
+        }
+      }
+    }
+  }
+}
+
 const IconDef *drawPet(uint8_t frame[kPixels], uint32_t phase) {
-  static const char *ids[] = {"smile", "wink", "heart"};
-  static const uint32_t colors[] = {0xFFD040, 0xFFD040, 0xFF2040};
+  static const char *ids[] = {"", "smile", "wink", "heart"};
   if (!petMoodUntil || timeReached(phase, petMoodUntil)) {
-    if (petMoodUntil && !petMood) {
-      petMood = esp_random() % 5 == 0 ? 2 : 1;
-      petMoodPeriod = petMood == 2 ? 1200 : 3000;
-    } else {
+    if (!petMoodUntil || petMood >= 2) {
       petMood = 0;
+      petMoodPeriod = 36000 + esp_random() % 12001;
+      petMoodColor = 0x20FF60;
+      petMoodUntil = phase + petMoodPeriod;
+    } else if (petMood == 0) {
+      petMood = 1;
+      petMoodPeriod = 4000;
+      petMoodColor = 0xFFD040;
+      petMoodUntil = phase + petMoodPeriod;
+    } else {
+      petMood = esp_random() & 1 ? 2 : 3;
+      petMoodPeriod = 2200;
+      petMoodColor = petMood == 3 ? 0xFF2040 : 0xFFD040;
+      petMoodUntil = phase + petMoodPeriod;
     }
     petMoodStarted = phase;
-    petMoodColor = colors[petMood];
-    petMoodUntil = phase + (petMood ? petMoodPeriod : 20000 + esp_random() % 25001);
+  }
+  if (!petMood) {
+    drawMatrixRain(frame, phase);
+    return nullptr;
   }
   const int index = findIcon(ids[petMood]);
   const IconDef *pet = index >= 0 ? &ICONS[index] : nullptr;
   if (!pet) return nullptr;
   AnimationSpec petAnimation;
-  petAnimation.enabled = petMood && pet->frameCount > 1;
+  petAnimation.enabled = petMood != 1 && pet->frameCount > 1;
   petAnimation.periodMs = petMoodPeriod;
   petAnimation.periodProvided = true;
+  petAnimation.repeat = 1;
   bool petFinished = false;
   const uint16_t petFrame = iconFrameAt(pet, petAnimation, phase - petMoodStarted, petFinished);
   for (uint16_t i = 0; i < kPixels; ++i) frame[i] = iconPixel(pet, petFrame, i);
@@ -803,14 +864,10 @@ void render(uint32_t now) {
   uint32_t phase = virtualNow(now) - state.virtualStarted;
   if (state.mode == MODE_IDLE) {
     if (idleMode == IDLE_PET) {
-      const IconDef *pet = drawPet(frame, phase);
-      if (pet) {
-        ColorSpec petColor;
-        petColor.values[0] = petMoodColor;
-        showFrame(frame, petColor, EffectSpec(), state.brightness, phase);
-      } else {
-        showFrame(frame, ColorSpec(), EffectSpec(), state.brightness, phase);
-      }
+      drawPet(frame, phase);
+      ColorSpec petColor;
+      petColor.values[0] = petMoodColor;
+      showFrame(frame, petColor, EffectSpec(), state.brightness, phase);
     } else {
       showFrame(frame, ColorSpec(), EffectSpec(), state.brightness, phase);
     }

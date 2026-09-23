@@ -320,9 +320,10 @@ STATIC_SPECS = [
 
 
 def animate_patterns() -> dict[str, tuple[str, list[list[int]], list[int], str]]:
-    ring_points = [(1, 3), (1, 4), (2, 6), (3, 6), (4, 6), (6, 4), (6, 3), (6, 1), (4, 1), (3, 1), (2, 1)]
+    ring_points = [(1, 3), (1, 4), (2, 5), (3, 6), (4, 6), (5, 5),
+                   (6, 4), (6, 3), (5, 2), (4, 1), (3, 1), (2, 2)]
     loading = []
-    for offset in range(8):
+    for offset in range(len(ring_points)):
         pixels = [0] * 64
         for point, (row, column) in enumerate(ring_points):
             distance = (point - offset) % len(ring_points)
@@ -388,7 +389,7 @@ def animate_patterns() -> dict[str, tuple[str, list[list[int]], list[int], str]]
     heart_small = pattern("........", "..#..#..", ".######.", "..####..", "...##...", "........", "........", "........")
     heart_big = pattern(".##..##.", "###..###", "########", ".######.", "..####..", "...##...", "........", "........")
     return {
-        "loading": ("加载", loading, [125] * 8, "cyan"),
+        "loading": ("加载", loading, [100] * len(loading), "cyan"),
         "waiting": ("等待", [pattern(*rows) for rows in waiting_patterns], [300] * 4, "yellow"),
         "busy": ("忙碌", busy_patterns, [400] * 4, "orange"),
         "upload": ("上传", [shift_y(upload_base, -offset) for offset in range(8)], [100] * 8, "green"),
@@ -489,7 +490,7 @@ def write_contact_sheets(records: dict[str, dict], asset_manifest: dict) -> None
             preview = source.convert("RGB").resize((64, 64), Image.Resampling.NEAREST)
         sheet.paste(preview, (x + (card_width - 64) // 2, y + 3))
         draw.text((x + 4, y + 70), icon_id, fill=(255, 255, 255))
-    draw.text((4, 1), "IconShow icons | preview brightness 85%", fill=(180, 180, 180))
+    draw.text((4, 1), "BlinkTile icons | preview brightness 85%", fill=(180, 180, 180))
     sheet.save(ASSET_DIR / "contact-sheet.png", format="PNG", optimize=False)
 
     animation_ids = [icon_id for icon_id, record in records.items() if len(record["frames"]) > 1]

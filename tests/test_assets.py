@@ -18,6 +18,11 @@ for name in ('upload', 'download', 'loading', 'waiting', 'smile', 'wink'):
 for name in ('smile', 'wink'):
     durations = [f['duration_ms'] for f in data['icons'][name]['frames']]
     assert max(durations) >= 5 * min(durations), f'{name}: blink needs a long open-eye dwell'
+for name in ('loading', 'upload', 'download'):
+    frames = [f['pixels'] for f in data['icons'][name]['frames']]
+    changes = [sum(abs(a-b) for a, b in zip(frames[i], frames[(i+1) % len(frames)]))
+               for i in range(len(frames))]
+    assert changes[-1] <= max(changes[:-1]), f'{name}: loop seam jumps farther than normal frames'
 assert data['icons']['success']['frames'][0]['pixels'] != data['icons']['arrow_up']['frames'][0]['pixels']
 animated = 0
 for name, icon in data['icons'].items():

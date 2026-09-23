@@ -69,11 +69,14 @@ uint8_t petMood=0,previousPetMood=255;
 uint32_t petMoodStarted=0,petMoodUntil=0;
 uint32_t petMoodColor=0xFFD040;
 uint16_t petMoodPeriod=5000;
+char matrixGlyphs[kMatrixLaneCount]={};
+char matrixTrailGlyphs[kMatrixLaneCount]={};
+uint32_t matrixCycles[kMatrixLaneCount]={UINT32_MAX,UINT32_MAX};
 '''
     names = ['timeReached','timeElapsed','parseUInt','parseByte','parseId','findIcon','parseHexColor','parseColorName',
       'parseColor','parseEffect','parseAnimation','parseCommon','parseIdFromRoot','virtualNow','resetPhase','setSpeed',
       'isActive','enterIdle','applyRenderState','mixChannel','mixColor','rainbowColor','colorAt','effectFactor',
-      'iconPixel','iconFrameDuration','iconTotalDuration','iconFrameAt','drawPet','drawText','showFrame',
+      'iconPixel','iconFrameDuration','iconTotalDuration','iconFrameAt','drawMatrixRain','drawPet','drawText','showFrame',
       'textIsScrolling','speedSupports','render','parseShow','parseText']
     functions = [block(source,rf'^[^\n;{{}}]*\b{name}\([^;{{]*\)\s*\{{') for name in names]
     # Declarations permit source function order to evolve without copying implementations.
@@ -88,6 +91,7 @@ int main(){
   state=RenderState(); idleMode=IDLE_OFF; paused=false; speed=1; frameDirty=true;
   phaseRealOrigin=phaseVirtualOrigin=lastFrameAt=0;
   petMood=0; petMoodStarted=petMoodUntil=0; petMoodColor=0xFFD040; petMoodPeriod=5000;
+  for(int i=0;i<kMatrixLaneCount;i++){matrixGlyphs[i]=matrixTrailGlyphs[i]=0;matrixCycles[i]=UINT32_MAX;}
   std::fill(std::begin(pixels.values),std::end(pixels.values),0);
   JsonArrayConst petTimes=request["pet_times"].as<JsonArrayConst>();
   if(!petTimes.isNull()){
@@ -96,9 +100,12 @@ int main(){
    const IconDef* smile=smileIndex>=0?&ICONS[smileIndex]:nullptr;
    for(JsonVariantConst sample:petTimes){
     uint8_t frame[64]={}; const IconDef* icon=drawPet(frame,sample.as<uint32_t>());
-    bool stable=petMood==0&&smile;
+    bool stable=petMood==1&&smile;
     for(int i=0;stable&&i<64;i++) stable=frame[i]==iconPixel(smile,smile->staticFrame,i);
-    JsonObject item=samples.add<JsonObject>(); item["mood"]=petMood; item["icon"]=icon?icon->id:""; item["stable_smile"]=stable;
+    uint32_t hash=2166136261u; int lit=0;
+    for(int i=0;i<64;i++){hash=(hash^frame[i])*16777619u;lit+=frame[i]>0;}
+    JsonObject item=samples.add<JsonObject>(); item["mood"]=petMood; item["icon"]=icon?icon->id:"";
+    item["stable_smile"]=stable; item["lit"]=lit; item["hash"]=hash;
    }
    serializeJson(response,std::cout);std::cout<<std::endl;continue;
   }
@@ -165,26 +172,33 @@ def main():
             a=json.loads(native.stdout.readline());b=json.loads(js.stdout.readline())
             if a['ok'] or b['ok']:
                 failures.append((command,'invalid text accepted',a.get('ok'),b.get('ok')))
-        pet_times=list(range(0,600001,100))
+        pet_times=list(range(0,240001,250))
         native.stdin.write(json.dumps({'pet_times':pet_times})+'\n');native.stdin.flush()
         samples=json.loads(native.stdout.readline())['pet_samples']
-        assert samples[0]['mood']==0 and samples[0]['icon']=='smile' and samples[0]['stable_smile'], 'pet must start on the static open smile'
+        assert samples[0]['mood']==0 and samples[0]['icon']=='' and samples[0]['lit']>0, 'pet must start with visible matrix rain'
         runs=[]; current=samples[0]['mood']; length=0
         for sample in samples:
-            assert sample['stable_smile'] if sample['mood']==0 else sample['icon']==('wink' if sample['mood']==1 else 'heart'), 'pet mood must use its expected icon'
-            if sample['mood']==current: length+=100
+            if sample['mood']==0:
+                assert sample['icon']=='' and sample['lit']<=48, 'matrix rain must stay inside its two glyph lanes'
+            elif sample['mood']==1:
+                assert sample['icon']=='smile' and sample['stable_smile'], 'smile vignette must hold an open face'
             else:
-                runs.append((current,length)); current=sample['mood']; length=100
+                assert sample['icon']==('wink' if sample['mood']==2 else 'heart'), 'pet gesture icon mismatch'
+            if sample['mood']==current: length+=250
+            else:
+                runs.append((current,length)); current=sample['mood']; length=250
         runs.append((current,length))
-        wink=[duration for mood,duration in runs if mood==1]
-        heart=[duration for mood,duration in runs if mood==2]
-        assert wink and heart and all(duration==3000 for duration in wink), 'each wink must play exactly one 3s cycle'
-        assert all(duration==1200 for duration in heart), 'each heart must play exactly one 1.2s beat'
-        assert len(heart)<=len(wink) and sum(wink+heart)<len(pet_times)*100*0.25, 'pet expressions must remain sparse and heart less frequent than wink'
+        rain=[sample for sample in samples if sample['mood']==0]
+        assert len(rain)/len(samples)>0.8, 'matrix rain must dominate idle time'
+        assert len({sample['hash'] for sample in rain[:40]})>=6, 'matrix glyphs must visibly fall'
+        assert all(36000<=duration<=48250 for mood,duration in runs[:-1] if mood==0), 'rain dwell outside 36-48s range'
+        assert all(3750<=duration<=4250 for mood,duration in runs[:-1] if mood==1), 'smile dwell should be 4s'
+        assert all(2000<=duration<=2500 for mood,duration in runs[:-1] if mood>=2), 'gesture dwell should be one 2.2s cycle'
+        assert any(mood>=2 for mood,duration in runs), 'pet gestures must still appear'
     finally:
         for proc in (native,js): proc.stdin.close();proc.wait(timeout=5)
     (BUILD/'parity-failures.json').write_text(json.dumps(failures,indent=2))
     assert not failures, f'{len(failures)}/{len(vectors)} render vectors differ: '+json.dumps(failures[:8])
-    print(f'PASS native firmware/JavaScript parity: {len(vectors)} actual source render vectors, <=1 channel rounding tolerance; 5 invalid text cases rejected; pet cadence and stable smile verified')
+    print(f'PASS native firmware/JavaScript parity: {len(vectors)} actual source render vectors, <=1 channel rounding tolerance; 5 invalid text cases rejected; matrix rain and pet cadence verified')
 
 if __name__=='__main__': main()

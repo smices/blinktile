@@ -9,13 +9,13 @@
   const fail = code => { throw new Error(code); };
   const object = x => x !== null && typeof x === 'object' && !Array.isArray(x);
   const integer = (n, lo, hi, code) => { if (!Number.isInteger(n) || n < lo || n > hi) fail(code); return n; };
-  // A repeatable sample of the device's randomized quiet-smile / single-action cadence.
+  // A repeatable preview of the device's randomized rain / brief expression cadence.
   const PET = [
-    ['smile',26000],['wink',3000],['smile',24000],['heart',1200],
-    ['smile',31000],['wink',3000],['smile',22000],['wink',3000],
-    ['smile',36000],['wink',3000]
+    ['matrix',42000],['smile',4000],['wink',2200],
+    ['matrix',45000],['smile',4000],['heart',2200]
   ];
   const PET_CYCLE = PET.reduce((sum,step)=>sum+step[1],0);
+  const MATRIX_GLYPHS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   const RAINBOW = ['red','orange','yellow','green','cyan','blue','purple'];
   function fields(value, names) {
     if (!object(value) || Object.keys(value).some(k => !names.includes(k))) fail('invalid_parameters');
@@ -182,18 +182,38 @@
       }
       return pixels;
     }
+    _rainMask(phase) {
+      const pixels=Array(64).fill(0);
+      for(let lane=0;lane<2;lane++) {
+        const step=Math.floor((phase+lane*1500)/250), cycle=Math.floor(step/13);
+        for(let trail=0;trail<2;trail++) {
+          if(trail && cycle===0) continue;
+          const char=MATRIX_GLYPHS[((cycle-trail)*7+lane*11+MATRIX_GLYPHS.length)%MATRIX_GLYPHS.length];
+          const cols=this.data.font[char], top=step%13-4-trail*6;
+          for(let col=0;col<3;col++) for(let row=0;row<5;row++) {
+            const sourceCols=col===0?[0,1]:col===1?[2]:[3,4];
+            const sourceRows=row===0?[0,1]:row===4?[5,6]:[row+1];
+            if(!sourceCols.some(x=>sourceRows.some(y=>cols[x]&(1<<y)))) continue;
+            const y=top+row;
+            if(y>=0&&y<8) pixels[y*8+lane*5+col]=trail?64:255;
+          }
+        }
+      }
+      return pixels;
+    }
     frame(now=performance.now()) {
       this._tick(now);
-      let c=this.content, phase=this.phase;
+      let c=this.content, phase=this.phase, mask;
       if(!c) {
         if(this.idle==='off') {this.powerLimited=false;this.estimatedMA=64;return blank();}
-        let within=this.petPhase%PET_CYCLE, id='smile';
+        let within=this.petPhase%PET_CYCLE, id='matrix';
         for(const [name,duration] of PET){id=name;if(within<duration)break;within-=duration;}
-        const icon=this.data.icons[id];
-        c={op:'show',icon:id,animation:{enabled:id!=='smile',period_ms:icon.period_ms,repeat:0},color:{mode:'solid',values:[id==='heart'?'#FF2040':'#FFD040'],period_ms:5000},effect:{type:'none',period_ms:2000,min:0,max:255}};
+        c={op:'show',icon:id,animation:{enabled:id!=='smile',period_ms:id==='matrix'?250:2200,repeat:0},color:{mode:'solid',values:[id==='heart'?'#FF2040':id==='matrix'?'#20FF60':'#FFD040'],period_ms:5000},effect:{type:'none',period_ms:2000,min:0,max:255}};
+        if(id==='matrix') mask=this._rainMask(this.petPhase);
         phase=within;
       }
-      const mask=this._mask(c,phase), e=c.effect;
+      mask ??= this._mask(c,phase);
+      const e=c.effect;
       const t=(phase%e.period_ms)/e.period_ms;
       const wave=e.type==='breathe'?(1+Math.cos(2*Math.PI*t))/2:(t<.5?1:0);
       const intensity=e.type==='none'?1:(e.min+(e.max-e.min)*wave)/255;
