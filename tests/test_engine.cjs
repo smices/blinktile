@@ -14,11 +14,17 @@ const engine = fresh();
 assert(lit(engine.frame(0)), 'boot must show matrix rain');
 assert.notDeepEqual(engine.frame(0),engine.frame(1000),'matrix rain must move');
 const seam=fresh();
+const rainCounts=[], rainGreens=new Set();
 for (let t=0;t<=5000;t+=250) for (const [i,rgb] of seam.frame(t).entries()) {
   if (!rgb.some(v=>v>0)) continue;
-  assert([0,2,5,7].includes(i%8), 'rain uses only four vertical lanes');
+  assert([0,1,2,4,5,7].includes(i%8), 'rain uses only six vertical lanes');
   assert.equal(rgb[0]+rgb[2],0,'rain is pure green');
+  rainGreens.add(rgb[1]);
 }
+const density=fresh();
+for(let t=0;t<=15000;t+=200) rainCounts.push(density.frame(t).filter(rgb=>rgb[1]>0).length);
+assert(Math.max(...rainCounts)-Math.min(...rainCounts)>=4,'rain density varies');
+assert(rainGreens.size>=4,'rain has varied green depths');
 const wink=fresh();
 const rain=wink.frame(0);
 const smile=wink.frame(42000);

@@ -70,7 +70,8 @@ uint32_t petMoodStarted=0,petMoodUntil=0;
 uint32_t petMoodColor=0xFFD040;
 uint16_t petMoodPeriod=5000;
 uint8_t matrixLengths[kMatrixLaneCount]={};
-uint32_t matrixCycles[kMatrixLaneCount]={UINT32_MAX,UINT32_MAX,UINT32_MAX,UINT32_MAX};
+uint8_t matrixIntensity[kMatrixLaneCount]={};
+uint32_t matrixCycles[kMatrixLaneCount]={UINT32_MAX,UINT32_MAX,UINT32_MAX,UINT32_MAX,UINT32_MAX,UINT32_MAX};
 '''
     names = ['timeReached','timeElapsed','parseUInt','parseByte','parseId','findIcon','parseHexColor','parseColorName',
       'parseColor','parseEffect','parseAnimation','parseCommon','parseIdFromRoot','virtualNow','resetPhase','setSpeed',
@@ -90,7 +91,7 @@ int main(){
   state=RenderState(); idleMode=IDLE_OFF; paused=false; speed=1; frameDirty=true;
   phaseRealOrigin=phaseVirtualOrigin=lastFrameAt=0;
   petMood=0; petMoodStarted=petMoodUntil=0; petMoodColor=0xFFD040; petMoodPeriod=5000;
-  for(int i=0;i<kMatrixLaneCount;i++){matrixLengths[i]=0;matrixCycles[i]=UINT32_MAX;}
+  for(int i=0;i<kMatrixLaneCount;i++){matrixLengths[i]=matrixIntensity[i]=0;matrixCycles[i]=UINT32_MAX;}
   std::fill(std::begin(pixels.values),std::end(pixels.values),0);
   if(request["priority"].as<bool>()){
    enterIdle(0,IDLE_PET); render(0);
@@ -112,7 +113,7 @@ int main(){
     bool stable=petMood==1&&smile;
     for(int i=0;stable&&i<64;i++) stable=frame[i]==iconPixel(smile,smile->staticFrame,i);
     uint32_t hash=2166136261u; int lit=0,invalidColumn=0;
-    for(int i=0;i<64;i++){hash=(hash^frame[i])*16777619u;lit+=frame[i]>0;invalidColumn+=frame[i]>0&&i%8!=0&&i%8!=2&&i%8!=5&&i%8!=7;}
+    for(int i=0;i<64;i++){hash=(hash^frame[i])*16777619u;lit+=frame[i]>0;invalidColumn+=frame[i]>0&&i%8!=0&&i%8!=1&&i%8!=2&&i%8!=4&&i%8!=5&&i%8!=7;}
     JsonObject item=samples.add<JsonObject>(); item["mood"]=petMood; item["icon"]=icon?icon->id:"";
     item["stable_smile"]=stable; item["lit"]=lit; item["invalid_column"]=invalidColumn; item["hash"]=hash;
    }
@@ -188,7 +189,7 @@ def main():
         runs=[]; current=samples[0]['mood']; length=0
         for sample in samples:
             if sample['mood']==0:
-                assert sample['icon']=='' and sample['lit']<=20 and sample['invalid_column']==0, 'matrix rain must use four short vertical streaks'
+                assert sample['icon']=='' and sample['lit']<=30 and sample['invalid_column']==0, 'matrix rain must use six short vertical lanes'
             elif sample['mood']==1:
                 assert sample['icon']=='smile' and sample['stable_smile'], 'smile vignette must hold an open face'
             else:
@@ -200,6 +201,7 @@ def main():
         rain=[sample for sample in samples if sample['mood']==0]
         assert len(rain)/len(samples)>0.8, 'matrix rain must dominate idle time'
         assert len({sample['hash'] for sample in rain[:40]})>=6, 'matrix streaks must visibly fall'
+        assert max(sample['lit'] for sample in rain)-min(sample['lit'] for sample in rain)>=8, 'rain density must vary'
         assert all(36000<=duration<=48250 for mood,duration in runs[:-1] if mood==0), 'rain dwell outside 36-48s range'
         assert all(3750<=duration<=4250 for mood,duration in runs[:-1] if mood==1), 'smile dwell should be 4s'
         assert all(2000<=duration<=2500 for mood,duration in runs[:-1] if mood>=2), 'gesture dwell should be one 2.2s cycle'

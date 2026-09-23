@@ -183,14 +183,15 @@
     }
     _rainMask(phase) {
       const pixels=Array(64).fill(0);
-      const columns=[0,2,5,7], offsets=[0,4,9,13], alpha=[255,192,144,112,80];
+      const columns=[0,1,2,4,5,7], offsets=[0,3,6,9,12,15], alpha=[255,192,144,112,80];
       for(let lane=0;lane<columns.length;lane++) {
-        const step=Math.floor(phase/250)+offsets[lane];
-        const length=2+(Math.floor(step/18)*3+lane*5)%4;
+        const step=Math.floor(phase/200)+offsets[lane], cycle=Math.floor(step/18);
+        const length=(lane===1||lane===3)&&((cycle*7+lane*5)%3===0)?0:3+(cycle*7+lane*5)%3;
+        const intensity=175+(cycle*37+lane*23)%81;
         const head=step%18-length;
         for(let tail=0;tail<length;tail++) {
           const y=head-tail;
-          if(y>=0&&y<8) pixels[y*8+columns[lane]]=alpha[tail];
+          if(y>=0&&y<8) pixels[y*8+columns[lane]]=Math.floor(alpha[tail]*intensity/255);
         }
       }
       return pixels;
