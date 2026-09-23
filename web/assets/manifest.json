@@ -226,7 +226,7 @@
     },
     {
       "id": "pet",
-      "label": "宠物序列",
+      "label": "桌宠节奏示意",
       "file": "assets/pet.gif",
       "kind": "pet",
       "command": {

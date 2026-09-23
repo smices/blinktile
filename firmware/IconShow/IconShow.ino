@@ -107,9 +107,8 @@ RenderState state;
 IdleMode idleMode = IDLE_PET;
 int16_t utcOffsetMinutes = 480;
 uint32_t nextPetClockAt = 0;
-bool petClockPending = true;
+bool petClockPending = false;
 uint8_t petMood = 0;
-uint8_t previousPetMood = 255;
 uint32_t petMoodStarted = 0;
 uint32_t petMoodUntil = 0;
 uint32_t petMoodColor = 0xFFD040;
@@ -683,28 +682,24 @@ uint16_t iconFrameAt(const IconDef *icon, const AnimationSpec &animation, uint32
 }
 
 const IconDef *drawPet(uint8_t frame[kPixels], uint32_t phase) {
-  static const char *ids[] = {"smile", "smile", "smile", "heart", "heart", "heart", "wink", "wink", "sleepy"};
-  static const uint32_t colors[] = {0xFFD040, 0xFFE060, 0xFFC830, 0xFF2040, 0xFF4060, 0xFF3050, 0xFF8A30, 0xFFA040, 0x4080FF};
-  static const uint16_t periods[] = {5200, 5000, 5800, 1800, 1800, 1900, 3200, 3400, 5200};
+  static const char *ids[] = {"smile", "wink", "heart"};
+  static const uint32_t colors[] = {0xFFD040, 0xFFD040, 0xFF2040};
   if (!petMoodUntil || timeReached(phase, petMoodUntil)) {
-    if (!petMoodUntil) petMood = 0;
-    else {
-      previousPetMood = petMood;
-      petMood = !strcmp(ids[previousPetMood], "smile") ? 3 + esp_random() % 6 : esp_random() % 3;
+    if (petMoodUntil && !petMood) {
+      petMood = esp_random() % 5 == 0 ? 2 : 1;
+      petMoodPeriod = petMood == 2 ? 1200 : 3000;
+    } else {
+      petMood = 0;
     }
     petMoodStarted = phase;
     petMoodColor = colors[petMood];
-    petMoodPeriod = periods[petMood];
-    uint8_t cycles = 2;
-    if (!strcmp(ids[petMood], "smile") || !strcmp(ids[petMood], "heart")) cycles += esp_random() % 2;
-    else if (!strcmp(ids[petMood], "sleepy")) cycles = 1 + esp_random() % 2;
-    petMoodUntil = phase + petMoodPeriod * cycles;
+    petMoodUntil = phase + (petMood ? petMoodPeriod : 20000 + esp_random() % 25001);
   }
   const int index = findIcon(ids[petMood]);
   const IconDef *pet = index >= 0 ? &ICONS[index] : nullptr;
   if (!pet) return nullptr;
   AnimationSpec petAnimation;
-  petAnimation.enabled = pet->frameCount > 1;
+  petAnimation.enabled = petMood && pet->frameCount > 1;
   petAnimation.periodMs = petMoodPeriod;
   petAnimation.periodProvided = true;
   bool petFinished = false;
@@ -1620,15 +1615,11 @@ void handleRequest(const QueueItem &item, uint32_t now) {
     }
     if (strcmp(mode, "off") != 0 && strcmp(mode, "pet") != 0) { sendError(item.source, item.client, root, "invalid_idle_mode"); return; }
     const IdleMode nextIdle = strcmp(mode, "pet") == 0 ? IDLE_PET : IDLE_OFF;
+    const IdleMode previousIdle = idleMode;
     if (nextIdle == IDLE_PET && idleMode != IDLE_PET) petClockPending = true;
     if (nextIdle == IDLE_OFF) { petClockPending = false; nextPetClockAt = 0; }
-    idleMode = nextIdle;
-    if (!isActive()) {
-      state.mode = MODE_IDLE;
-      resetPhase(now);
-      state.virtualStarted = 0;
-      frameDirty = true;
-    }
+    if (!isActive() && previousIdle != nextIdle) enterIdle(now, nextIdle);
+    else idleMode = nextIdle;
     sendOk(item.source, item.client, root);
     return;
   }
@@ -1753,6 +1744,7 @@ void firmwareSetup() {
   state.mode = MODE_IDLE;
   state.brightness = kDefaultBrightness;
   resetPhase(millis());
+  nextPetClockAt = millis() + kClockMinDelayMs + esp_random() % kClockDelayRangeMs;
   loadSecrets();
   initWifi();
   configTime(0, 0, "pool.ntp.org", "time.nist.gov");

@@ -9,7 +9,13 @@
   const fail = code => { throw new Error(code); };
   const object = x => x !== null && typeof x === 'object' && !Array.isArray(x);
   const integer = (n, lo, hi, code) => { if (!Number.isInteger(n) || n < lo || n > hi) fail(code); return n; };
-  const PET = ['smile','happy','wink','sleepy'];
+  // A repeatable sample of the device's randomized quiet-smile / single-action cadence.
+  const PET = [
+    ['smile',26000],['wink',3000],['smile',24000],['heart',1200],
+    ['smile',31000],['wink',3000],['smile',22000],['wink',3000],
+    ['smile',36000],['wink',3000]
+  ];
+  const PET_CYCLE = PET.reduce((sum,step)=>sum+step[1],0);
   const RAINBOW = ['red','orange','yellow','green','cyan','blue','purple'];
   function fields(value, names) {
     if (!object(value) || Object.keys(value).some(k => !names.includes(k))) fail('invalid_parameters');
@@ -28,7 +34,7 @@
   class IconEngine {
     constructor(data) {
       this.data = data;
-      this.brightness = 64; this.speed = 1; this.idle = 'off'; this.paused = false;
+      this.brightness = 64; this.speed = 1; this.idle = 'pet'; this.paused = false;
       this.content = null; this.phase = 0; this.petPhase = 0; this.last = null; this.expires = null;
       this.powerLimited = false; this.estimatedMA = 64;
     }
@@ -135,8 +141,9 @@
         } else if (cmd.op==='idle') {
           fields(cmd,common.concat('mode'));
           if (!['off','pet'].includes(cmd.mode)) fail('invalid_idle');
+          const changed=this.idle!==cmd.mode;
           this.idle=cmd.mode;
-          if (!this.content) {this.petPhase=0;this.paused=false;}
+          if (!this.content && changed) {this.petPhase=0;this.paused=false;}
         } else if (cmd.op==='keepalive') {
           fields(cmd,common.concat('target_id'));
           integer(cmd.target_id,1,2147483647,'invalid_id');
@@ -180,9 +187,11 @@
       let c=this.content, phase=this.phase;
       if(!c) {
         if(this.idle==='off') {this.powerLimited=false;this.estimatedMA=64;return blank();}
-        const id=PET[Math.floor(this.petPhase/20000)%PET.length], icon=this.data.icons[id];
-        c={op:'show',icon:id,animation:{enabled:true,period_ms:icon.period_ms,repeat:0},color:{mode:'solid',values:[icon.color],period_ms:5000},effect:{type:'none',period_ms:2000,min:0,max:255}};
-        phase=this.petPhase%20000;
+        let within=this.petPhase%PET_CYCLE, id='smile';
+        for(const [name,duration] of PET){id=name;if(within<duration)break;within-=duration;}
+        const icon=this.data.icons[id];
+        c={op:'show',icon:id,animation:{enabled:id!=='smile',period_ms:icon.period_ms,repeat:0},color:{mode:'solid',values:[id==='heart'?'#FF2040':'#FFD040'],period_ms:5000},effect:{type:'none',period_ms:2000,min:0,max:255}};
+        phase=within;
       }
       const mask=this._mask(c,phase), e=c.effect;
       const t=(phase%e.period_ms)/e.period_ms;

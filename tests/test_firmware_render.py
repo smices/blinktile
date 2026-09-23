@@ -87,7 +87,21 @@ int main(){
   if(deserializeJson(request,line)){return 2;}
   state=RenderState(); idleMode=IDLE_OFF; paused=false; speed=1; frameDirty=true;
   phaseRealOrigin=phaseVirtualOrigin=lastFrameAt=0;
+  petMood=0; petMoodStarted=petMoodUntil=0; petMoodColor=0xFFD040; petMoodPeriod=5000;
   std::fill(std::begin(pixels.values),std::end(pixels.values),0);
+  JsonArrayConst petTimes=request["pet_times"].as<JsonArrayConst>();
+  if(!petTimes.isNull()){
+   JsonArray samples=response["pet_samples"].to<JsonArray>();
+   int smileIndex=findIcon("smile");
+   const IconDef* smile=smileIndex>=0?&ICONS[smileIndex]:nullptr;
+   for(JsonVariantConst sample:petTimes){
+    uint8_t frame[64]={}; const IconDef* icon=drawPet(frame,sample.as<uint32_t>());
+    bool stable=petMood==0&&smile;
+    for(int i=0;stable&&i<64;i++) stable=frame[i]==iconPixel(smile,smile->staticFrame,i);
+    JsonObject item=samples.add<JsonObject>(); item["mood"]=petMood; item["icon"]=icon?icon->id:""; item["stable_smile"]=stable;
+   }
+   serializeJson(response,std::cout);std::cout<<std::endl;continue;
+  }
   JsonObjectConst cmd=request["command"].as<JsonObjectConst>();
   const char* error=nullptr; RenderState next;
   bool ok=strcmp(cmd["op"]|"","show")==0?parseShow(cmd,next,error):parseText(cmd,next,error);
@@ -151,10 +165,26 @@ def main():
             a=json.loads(native.stdout.readline());b=json.loads(js.stdout.readline())
             if a['ok'] or b['ok']:
                 failures.append((command,'invalid text accepted',a.get('ok'),b.get('ok')))
+        pet_times=list(range(0,600001,100))
+        native.stdin.write(json.dumps({'pet_times':pet_times})+'\n');native.stdin.flush()
+        samples=json.loads(native.stdout.readline())['pet_samples']
+        assert samples[0]['mood']==0 and samples[0]['icon']=='smile' and samples[0]['stable_smile'], 'pet must start on the static open smile'
+        runs=[]; current=samples[0]['mood']; length=0
+        for sample in samples:
+            assert sample['stable_smile'] if sample['mood']==0 else sample['icon']==('wink' if sample['mood']==1 else 'heart'), 'pet mood must use its expected icon'
+            if sample['mood']==current: length+=100
+            else:
+                runs.append((current,length)); current=sample['mood']; length=100
+        runs.append((current,length))
+        wink=[duration for mood,duration in runs if mood==1]
+        heart=[duration for mood,duration in runs if mood==2]
+        assert wink and heart and all(duration==3000 for duration in wink), 'each wink must play exactly one 3s cycle'
+        assert all(duration==1200 for duration in heart), 'each heart must play exactly one 1.2s beat'
+        assert len(heart)<=len(wink) and sum(wink+heart)<len(pet_times)*100*0.25, 'pet expressions must remain sparse and heart less frequent than wink'
     finally:
         for proc in (native,js): proc.stdin.close();proc.wait(timeout=5)
     (BUILD/'parity-failures.json').write_text(json.dumps(failures,indent=2))
     assert not failures, f'{len(failures)}/{len(vectors)} render vectors differ: '+json.dumps(failures[:8])
-    print(f'PASS native firmware/JavaScript parity: {len(vectors)} actual source render vectors, <=1 channel rounding tolerance; 5 invalid text cases rejected')
+    print(f'PASS native firmware/JavaScript parity: {len(vectors)} actual source render vectors, <=1 channel rounding tolerance; 5 invalid text cases rejected; pet cadence and stable smile verified')
 
 if __name__=='__main__': main()
