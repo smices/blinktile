@@ -34,7 +34,7 @@ GPIO2 是启动配置引脚，复位时不能被外围强制拉低。参考板�
 
 ## 开发与构建
 
-依赖 Node.js 22、Python 3，以及 Python 包 Pillow、websockets、pyserial。固件版本固定为 Arduino-ESP32 3.3.11、Adafruit NeoPixel 1.15.5、ArduinoJson 7.4.3、WebSockets 2.7.2。已有版本时不需要重复安装。
+依赖 Node.js 22、Python 3，以及 Python 包 Pillow、websockets。固件版本固定为 Arduino-ESP32 3.3.11、Adafruit NeoPixel 1.15.5、ArduinoJson 7.4.3、WebSockets 2.7.2。已有版本时不需要重复安装。
 
 ```sh
 arduino-cli core install esp32:esp32@3.3.11
@@ -75,7 +75,7 @@ bash tools/test.sh
 
 - [协议](docs/protocol.md)：JSON 指令、时序、鉴权和传输边界。
 - [最小 HTML 示例](web/example.html)：实际客户端调用。
-- [Codex 状态桥接](docs/codex-status.md)：可选的本机 hook 接入，不影响其他应用使用显示协议。
+- [Codex 状态桥接 sample](codex-status/README.md)：独立依赖与测试，可选的本机 hook 接入。
 - [验收记录](docs/verification.md)：区分素材、模拟器、编译和真机验证。
 
 Codex 等软件可以把处理中映射到 `loading`、等待输入映射到呼吸 `question`、完成映射到 `success`，把额度格式化成 `100%` 或 `25% LEFT`。可选的 Codex 桥接只接收事件名称和会话／轮次／子代理 ID，不读取会话内容、账号或额度数据。

@@ -16,7 +16,7 @@ from websockets.asyncio.client import connect
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'tools'))
+sys.path.insert(0, str(ROOT / 'codex-status'))
 from codex_status import ACTOR_TIMEOUT, SerialDevice, StatusBridge  # noqa: E402
 
 
@@ -86,13 +86,13 @@ class CodexStatusTests(unittest.TestCase):
         try:
             hook = {'hook_event_name': 'PreToolUse', 'session_id': 's.1', 'turn_id': 't-2',
                     'agent_id': 'a:3', 'prompt': 'must not escape', 'tool_input': {'secret': 'x'}}
-            proc = subprocess.run([sys.executable, str(ROOT / 'tools/codex_status.py'),
+            proc = subprocess.run([sys.executable, str(ROOT / 'codex-status/codex_status.py'),
                                    'hook', '--port', str(server.server_port)],
                                   input=json.dumps(hook), text=True, capture_output=True, timeout=3)
             self.assertEqual(proc.returncode, 0)
             self.assertEqual(received, [{'hook_event_name': 'PreToolUse', 'session_id': 's.1',
                                          'turn_id': 't-2', 'agent_id': 'a:3'}])
-            proc = subprocess.run([sys.executable, str(ROOT / 'tools/codex_status.py'),
+            proc = subprocess.run([sys.executable, str(ROOT / 'codex-status/codex_status.py'),
                                    'hook', '--port', '1'], input='{}', text=True,
                                   capture_output=True, timeout=3)
             self.assertEqual(proc.returncode, 0)
@@ -225,7 +225,7 @@ class CodexStatusTests(unittest.TestCase):
                             self.fail('simulator did not start')
                         await asyncio.sleep(.05)
                 bridge = subprocess.Popen(
-                    [sys.executable, str(ROOT / 'tools/codex_status.py'), 'bridge',
+                    [sys.executable, str(ROOT / 'codex-status/codex_status.py'), 'bridge',
                      '--ws-url', f'ws://127.0.0.1:{ws_port}/ws', '--listen-port', str(bridge_port)],
                     env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
                     start_new_session=True)

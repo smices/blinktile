@@ -1,15 +1,16 @@
 # Codex 执行状态桥接
 
-这个可选集成只使用 IconShow 现有的 JSON 显示协议，不修改固件，也不占用其他应用的接入口。Codex hook 只上报事件名称和会话／轮次／子代理 ID；不读取或发送提示词、工具参数、转录和账号数据。
+这个 sample 只使用 IconShow 现有的 JSON 显示协议，不修改固件，也不占用其他应用的接入口。Codex hook 只上报事件名称和会话／轮次／子代理 ID；不读取或发送提示词、工具参数、转录和账号数据。
 
 ## 启动
 
-先安装 Python 依赖，再启动本机桥接。已通过 USB 连接的设备可直接使用串口，不需要切换 Wi-Fi：
+在仓库根目录先进入此 sample，安装它自己的 Python 依赖，再启动本机桥接。已通过 USB 连接的设备可直接使用串口，不需要切换 Wi-Fi：
 
 ```sh
+cd codex-status
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python tools/codex_status.py bridge --serial-port /dev/cu.usbmodemXXXX --listen-port 8766
+.venv/bin/python codex_status.py bridge --serial-port /dev/cu.usbmodemXXXX --listen-port 8766
 ```
 
 `/dev/cu.usbmodemXXXX` 是占位符，先用 `arduino-cli board list` 核对实际串口。若设备已联网，也可使用 `--ws-url ws://设备IP:81/ws --token-env ICONSHOW_TOKEN`；把设备控制密钥放在 `ICONSHOW_TOKEN` 环境变量中，不要写入命令、仓库或日志。桥接仅在 `127.0.0.1:8766` 接收 hook。本工具不会发起配网或切换电脑网络。可用模拟器的 `ws://127.0.0.1:8765/ws` 做软件测试。终止桥接后，灯板上最后一条状态会在其有效期届满后回到桌宠。
@@ -19,20 +20,22 @@ python3 -m venv .venv
 ```json
 {
   "hooks": {
-    "UserPromptSubmit": [{"hooks":[{"type":"command","command":"python3 /ABS/PATH/TO/IconShow/tools/codex_status.py hook --port 8766","timeout":3}]}],
-    "PreToolUse": [{"hooks":[{"type":"command","command":"python3 /ABS/PATH/TO/IconShow/tools/codex_status.py hook --port 8766","timeout":3}]}],
-    "PostToolUse": [{"hooks":[{"type":"command","command":"python3 /ABS/PATH/TO/IconShow/tools/codex_status.py hook --port 8766","timeout":3}]}],
-    "PermissionRequest": [{"hooks":[{"type":"command","command":"python3 /ABS/PATH/TO/IconShow/tools/codex_status.py hook --port 8766","timeout":3}]}],
-    "SubagentStart": [{"hooks":[{"type":"command","command":"python3 /ABS/PATH/TO/IconShow/tools/codex_status.py hook --port 8766","timeout":3}]}],
-    "SubagentStop": [{"hooks":[{"type":"command","command":"python3 /ABS/PATH/TO/IconShow/tools/codex_status.py hook --port 8766","timeout":3}]}],
-    "Stop": [{"hooks":[{"type":"command","command":"python3 /ABS/PATH/TO/IconShow/tools/codex_status.py hook --port 8766","timeout":3}]}],
-    "Interrupt": [{"hooks":[{"type":"command","command":"python3 /ABS/PATH/TO/IconShow/tools/codex_status.py hook --port 8766","timeout":3}]}],
-    "SessionEnd": [{"hooks":[{"type":"command","command":"python3 /ABS/PATH/TO/IconShow/tools/codex_status.py hook --port 8766","timeout":3}]}]
+    "UserPromptSubmit": [{"hooks":[{"type":"command","command":"python3 /ABS/PATH/TO/IconShow/codex-status/codex_status.py hook --port 8766","timeout":3}]}],
+    "PreToolUse": [{"hooks":[{"type":"command","command":"python3 /ABS/PATH/TO/IconShow/codex-status/codex_status.py hook --port 8766","timeout":3}]}],
+    "PostToolUse": [{"hooks":[{"type":"command","command":"python3 /ABS/PATH/TO/IconShow/codex-status/codex_status.py hook --port 8766","timeout":3}]}],
+    "PermissionRequest": [{"hooks":[{"type":"command","command":"python3 /ABS/PATH/TO/IconShow/codex-status/codex_status.py hook --port 8766","timeout":3}]}],
+    "SubagentStart": [{"hooks":[{"type":"command","command":"python3 /ABS/PATH/TO/IconShow/codex-status/codex_status.py hook --port 8766","timeout":3}]}],
+    "SubagentStop": [{"hooks":[{"type":"command","command":"python3 /ABS/PATH/TO/IconShow/codex-status/codex_status.py hook --port 8766","timeout":3}]}],
+    "Stop": [{"hooks":[{"type":"command","command":"python3 /ABS/PATH/TO/IconShow/codex-status/codex_status.py hook --port 8766","timeout":3}]}],
+    "Interrupt": [{"hooks":[{"type":"command","command":"python3 /ABS/PATH/TO/IconShow/codex-status/codex_status.py hook --port 8766","timeout":3}]}],
+    "SessionEnd": [{"hooks":[{"type":"command","command":"python3 /ABS/PATH/TO/IconShow/codex-status/codex_status.py hook --port 8766","timeout":3}]}]
   }
 }
 ```
 
 Codex 需要用户用 `/hooks` 审阅并信任非托管 hook；未信任时不会运行。本项目不会自动改写用户级 Codex 配置。hook 在桥接未启动时静默失败，不影响 Codex 执行。
+
+可在此目录运行 `.venv/bin/python test_codex_status.py` 验证 sample；端到端模拟测试还需要仓库根目录的 `tools/simulator.py` 和 Node.js。
 
 ## 状态语义与边界
 
