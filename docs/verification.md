@@ -30,3 +30,9 @@ ESP32-C3 已通过 USB-Serial/JTAG 枚举并完成烧录，所有写入数据哈
 尚未完成电流表测量、温升、BLE 无线发现/20 字节分包、WebSocket 真机通信、Wi-Fi 换网、错误密码、隐藏 SSID、DHCP 失败、候选网络期间断电以及热点关闭验收。
 
 原生 C++ 比对只替换灯珠输出边界，不覆盖 ESP32 调度与无线栈。配网页测试使用模拟 HTTP 响应，不证明真实 AP、DHCP 或 NVS 行为。电流是软件估算，必须以 [真机验收表](hardware.md) 完成实测。
+
+## 2026-09-23 Codex 状态桥接
+
+`bash tools/test.sh` 全部通过，包含新增的 Codex hook 隐私过滤、失败时不阻塞 Codex、会话／子代理状态、外部应用占用保护、串口分帧和 hook → 本机桥接 → WebSocket 模拟器 → 桌宠恢复测试。
+
+已连接的 ESP32-C3 未重新刷机、未配网或切换电脑网络。经 USB 串口用合成 hook 事件驱动后，设备 `get` 读回执行中 `loading`、等待授权 `question`、完成 `success`，之后读回 `mode=idle`、`idle=pet`；全过程亮度保持 8/255。该检查验证状态和 TTL，不等于肉眼确认三种图案效果，也未验证 Codex CLI／桌面端实际触发 hook。用户级 hooks 尚未安装或信任，不能声称真实 Codex 任务已自动联动。
