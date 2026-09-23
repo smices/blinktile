@@ -14,7 +14,7 @@ BLE 广播名为 `BlinkTile`。源码目录、设备热点前缀 `IconShow-` 和
 python3 -m http.server 8000 --bind 127.0.0.1 --directory web
 ```
 
-在支持的桌面 Chrome/Edge 打开 `http://localhost:8000`。选图标或输入 `100%`，调整参数，再点击发送。WebSocket 地址为 `ws://设备IP:81/ws`。BLE 必须由用户点击并选择设备；浏览器不支持时使用 WebSocket。
+在支持的桌面 Chrome/Edge 打开 `http://127.0.0.1:8000`。选图标或输入 `100%`，调整参数，再点击发送。WebSocket 地址为 `ws://设备IP:81/ws`。通过 BLE 连接时，先在设备连接区填入 USB 串口 `secrets` 命令取得的 `control_token`，点击“选择 BLE 设备”，在浏览器弹窗中选择 `BlinkTile`；连接成功后再点击发送。BLE 不需要配网，浏览器不支持 Web Bluetooth 时可改用 WebSocket。完整步骤见[设备配置与验收](docs/hardware.md)。
 
 完整资源包应一起保留，HTML 引用同目录脚本和 `assets/`，不依赖 CDN。GIF 展示默认效果，实时预览展示当前参数；显示器与灯珠的实际色彩和亮度仍有差异。
 
@@ -77,7 +77,7 @@ bash tools/test.sh
 
 - [协议](docs/protocol.md)：JSON 指令、时序、鉴权和传输边界。
 - [最小 HTML 示例](web/example.html)：实际客户端调用。
-- [Codex 状态桥接 sample](codex-status/README.md)：独立依赖与测试，可选的本机 hook 接入。
+- [Codex 状态桥接 sample](codex-status/README.md)：独立依赖与测试，可经 USB、BLE 或 WebSocket 接入本机 hook。
 - [验收记录](docs/verification.md)：区分素材、模拟器、编译和真机验证。
 
 Codex 等软件可以把处理中映射到 `loading`、等待输入映射到呼吸 `question`、完成映射到 `success`，把额度格式化成 `100%` 或 `25% LEFT`。可选的 Codex 桥接只接收事件名称和会话／轮次／子代理 ID，不读取会话内容、账号或额度数据。

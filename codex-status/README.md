@@ -17,6 +17,8 @@ python3 -m venv .venv
 
 也可直接通过 Bluetooth LE 连接，无需加入 Wi-Fi。Bleak 是可选依赖，只在此模式安装；设备必须正在广播。按提示静默输入控制密钥，再启动桥接：
 
+若 USB 桥接仍占用本机 `8766` 端口，先在运行它的终端按 `Ctrl+C` 停止；USB 与 BLE 桥接不要同时启动。macOS 首次使用时，还需允许运行 Python 的终端访问蓝牙。
+
 ```bash
 .venv/bin/python -m pip install bleak
 printf 'Control token (input hidden): '
