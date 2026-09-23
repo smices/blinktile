@@ -4,7 +4,7 @@
 
 先核对 GPIO2→DIN、5V 和共地，确认 USB 电源至少 5V/1A。默认亮度 25%，仍保留每帧功耗估算限亮。首次测试从少量亮点开始，不用满白画面作为开机自检。
 
-构建后使用 `arduino-cli board list` 识别实际板子的串口。不要把 Bluetooth-Incoming-Port 或 debug-console 当作 ESP32。烧录会替换板上原有程序，应只对指定的 IconShow 测试板执行。
+构建后使用 `arduino-cli board list` 识别实际板子的串口。不要把 Bluetooth-Incoming-Port 或 debug-console 当作 ESP32。烧录会替换板上原有程序，应只对指定的 BlinkTile 测试板执行。
 
 ```sh
 arduino-cli upload \

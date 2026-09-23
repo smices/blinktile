@@ -1,4 +1,4 @@
-# IconShow local project memory
+# BlinkTile local project memory
 
 ## User requirements recorded 2026-09-22
 

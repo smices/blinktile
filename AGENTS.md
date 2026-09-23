@@ -1,4 +1,4 @@
-# IconShow project instructions
+# BlinkTile project instructions
 
 ## Model roles and reporting
 

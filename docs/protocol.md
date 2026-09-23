@@ -1,4 +1,4 @@
-# IconShow protocol v1
+# BlinkTile protocol v1
 
 设备把显示内容、颜色变化、明暗变化分别计算，再应用用户亮度与功耗限制。WebSocket、BLE 和本地 USB 命令使用同一显示语义。
 
