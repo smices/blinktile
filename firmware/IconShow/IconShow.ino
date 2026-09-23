@@ -33,7 +33,8 @@ constexpr uint16_t kDefaultScrollStep = 180;
 constexpr uint32_t kClockMinDelayMs = 120000;
 constexpr uint32_t kClockDelayRangeMs = 300001;
 constexpr uint16_t kMatrixFallStepMs = 250;
-constexpr uint8_t kMatrixLaneCount = 2;
+constexpr uint8_t kMatrixLaneCount = 4;
+constexpr uint8_t kMatrixCycleSteps = 18;
 constexpr time_t kValidEpoch = 1700000000;
 constexpr float kPi = 3.14159265358979323846f;
 
@@ -115,9 +116,8 @@ uint32_t petMoodStarted = 0;
 uint32_t petMoodUntil = 0;
 uint32_t petMoodColor = 0xFFD040;
 uint16_t petMoodPeriod = 5000;
-char matrixGlyphs[kMatrixLaneCount] = {};
-char matrixTrailGlyphs[kMatrixLaneCount] = {};
-uint32_t matrixCycles[kMatrixLaneCount] = {UINT32_MAX, UINT32_MAX};
+uint8_t matrixLengths[kMatrixLaneCount] = {};
+uint32_t matrixCycles[kMatrixLaneCount] = {UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX};
 float speed = 1.0f;
 bool paused = false;
 uint32_t phaseRealOrigin = 0;
@@ -506,7 +506,7 @@ void enterIdle(uint32_t now, IdleMode mode) {
   state.virtualStarted = 0;
   petMoodUntil = 0;
   for (uint8_t lane = 0; lane < kMatrixLaneCount; ++lane) {
-    matrixGlyphs[lane] = matrixTrailGlyphs[lane] = 0;
+    matrixLengths[lane] = 0;
     matrixCycles[lane] = UINT32_MAX;
   }
   frameDirty = true;
@@ -691,41 +691,20 @@ uint16_t iconFrameAt(const IconDef *icon, const AnimationSpec &animation, uint32
 }
 
 void drawMatrixRain(uint8_t frame[kPixels], uint32_t phase) {
-  static const uint8_t xPositions[kMatrixLaneCount] = {0, 5};
-  static const char glyphs[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  constexpr uint32_t kCycleSteps = 19;  // Let the dim glyph leave the 8-row panel before restarting.
+  static const uint8_t xPositions[kMatrixLaneCount] = {0, 2, 5, 7};
+  static const uint8_t offsets[kMatrixLaneCount] = {0, 4, 9, 13};
+  static const uint8_t alpha[] = {255, 192, 144, 112, 80};
   for (uint8_t lane = 0; lane < kMatrixLaneCount; ++lane) {
-    const uint32_t lanePhase = phase + static_cast<uint32_t>(lane) * 6 * kMatrixFallStepMs;
-    const uint32_t step = lanePhase / kMatrixFallStepMs;
-    const uint32_t cycle = step / kCycleSteps;
+    const uint32_t step = phase / kMatrixFallStepMs + offsets[lane];
+    const uint32_t cycle = step / kMatrixCycleSteps;
     if (matrixCycles[lane] != cycle) {
       matrixCycles[lane] = cycle;
-      matrixTrailGlyphs[lane] = matrixGlyphs[lane];
-      matrixGlyphs[lane] = glyphs[esp_random() % (sizeof(glyphs) - 1)];
+      matrixLengths[lane] = 2 + esp_random() % 4;
     }
-    for (uint8_t trail = 0; trail < 2; ++trail) {
-      const char character = trail ? matrixTrailGlyphs[lane] : matrixGlyphs[lane];
-      if (character < 32) continue;
-      const uint8_t glyph = static_cast<uint8_t>(character - 32);
-      const int8_t top = static_cast<int8_t>(step % kCycleSteps) - 4 - (trail ? 6 : 0);
-      for (uint8_t col = 0; col < 3; ++col) {
-        const uint8_t firstSourceCol = col == 0 ? 0 : col == 1 ? 2 : 3;
-        const uint8_t lastSourceCol = col == 0 ? 1 : col == 1 ? 2 : 4;
-        for (uint8_t row = 0; row < 5; ++row) {
-          const uint8_t firstSourceRow = row == 0 ? 0 : row == 4 ? 5 : row + 1;
-          const uint8_t lastSourceRow = row == 0 ? 1 : row == 4 ? 6 : firstSourceRow;
-          bool lit = false;
-          for (uint8_t sourceCol = firstSourceCol; sourceCol <= lastSourceCol; ++sourceCol) {
-            const uint8_t bits = pgm_read_byte(&FONT[glyph][sourceCol]);
-            for (uint8_t sourceRow = firstSourceRow; sourceRow <= lastSourceRow; ++sourceRow) {
-              lit = lit || (bits & (1U << sourceRow));
-            }
-          }
-          const int8_t y = top + row;
-          const uint8_t x = xPositions[lane] + col;
-          if (lit && y >= 0 && y < kHeight) frame[y * kWidth + x] = trail ? 64 : 255;
-        }
-      }
+    const int8_t head = static_cast<int8_t>(step % kMatrixCycleSteps) - matrixLengths[lane];
+    for (uint8_t tail = 0; tail < matrixLengths[lane]; ++tail) {
+      const int8_t y = head - tail;
+      if (y >= 0 && y < kHeight) frame[y * kWidth + xPositions[lane]] = alpha[tail];
     }
   }
 }
@@ -736,7 +715,7 @@ const IconDef *drawPet(uint8_t frame[kPixels], uint32_t phase) {
     if (!petMoodUntil || petMood >= 2) {
       petMood = 0;
       petMoodPeriod = 36000 + esp_random() % 12001;
-      petMoodColor = 0x20FF60;
+      petMoodColor = 0x00FF00;
       petMoodUntil = phase + petMoodPeriod;
     } else if (petMood == 0) {
       petMood = 1;

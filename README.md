@@ -1,6 +1,6 @@
 # BlinkTile
 
-ESP32-C3 SuperMini + WS2812B 8×8 彩色状态灯。用 BLE 或局域网 WebSocket 显示图标、动画、数字和英文；没有临时状态时显示字符雨，并短暂切换为会眨眼的桌宠。
+ESP32-C3 SuperMini + WS2812B 8×8 彩色状态灯。用 BLE 或局域网 WebSocket 显示图标、动画、数字和英文；没有临时状态时显示绿色长短竖线雨，并短暂切换为会眨眼的桌宠。
 
 BLE 广播名为 `BlinkTile`。源码目录、设备热点前缀 `IconShow-` 和发布包名 `IconShow-release.zip` 暂沿用旧标识；下文命令与当前固件、构建脚本保持一致。
 

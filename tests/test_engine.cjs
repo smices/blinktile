@@ -14,9 +14,11 @@ const engine = fresh();
 assert(lit(engine.frame(0)), 'boot must show matrix rain');
 assert.notDeepEqual(engine.frame(0),engine.frame(1000),'matrix rain must move');
 const seam=fresh();
-seam.frame(0);
-const leftLit=frame=>frame.some((rgb,i)=>i%8<3&&rgb.some(v=>v>0));
-assert(!leftLit(seam.frame(4500)) && leftLit(seam.frame(4750)), 'rain trail must leave before its lane restarts');
+for (let t=0;t<=5000;t+=250) for (const [i,rgb] of seam.frame(t).entries()) {
+  if (!rgb.some(v=>v>0)) continue;
+  assert([0,2,5,7].includes(i%8), 'rain uses only four vertical lanes');
+  assert.equal(rgb[0]+rgb[2],0,'rain is pure green');
+}
 const wink=fresh();
 const rain=wink.frame(0);
 const smile=wink.frame(42000);
