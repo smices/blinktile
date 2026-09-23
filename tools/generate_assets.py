@@ -447,7 +447,7 @@ def example_specs() -> list[dict]:
     for asset_id, text in (("text_100", "100%"), ("text_007", "007"), ("text_3_14", "3.14"), ("text_hello", "HELLO"), ("text_25_left", "25% LEFT")):
         command = {"id": 1, "op": "text", "text": text, "scroll": {"mode": "always", "direction": "left", "step_ms": 180, "repeat": 0}}
         specs.append((asset_id, text, "text", command, [80] * (len(text) * 6 + 10), 640))
-    specs.append(("pet", "桌宠节奏示意", "pet", {"id": 1, "op": "idle", "mode": "pet"}, [100] * 1522, 0))
+    specs.append(("pet", "桌宠节奏示意", "pet", {"id": 1, "op": "idle", "mode": "pet"}, [100] * 994, 0))
     return [
         {"id": asset_id, "label": label, "kind": kind, "command": command, "durations": durations, "poster_time": poster_time}
         for asset_id, label, kind, command, durations, poster_time in specs

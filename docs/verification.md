@@ -36,3 +36,9 @@ ESP32-C3 已通过 USB-Serial/JTAG 枚举并完成烧录，所有写入数据哈
 主项目的 `bash tools/test.sh` 与 sample 的 `python3 codex-status/test_codex_status.py` 分别通过。后者覆盖 Codex hook 隐私过滤、失败时不阻塞 Codex、会话／子代理状态、外部应用占用保护、串口分帧和 hook → 本机桥接 → WebSocket 模拟器 → 桌宠恢复。
 
 已连接的 ESP32-C3 未重新刷机、未配网或切换电脑网络。经 USB 串口用合成 hook 事件驱动后，设备 `get` 读回执行中 `loading`、等待授权 `question`、完成 `success`，之后读回 `mode=idle`、`idle=pet`；全过程亮度保持 8/255。该检查验证状态和 TTL，不等于肉眼确认三种图案效果，也未验证 Codex CLI／桌面端实际触发 hook。用户级 hooks 尚未安装或信任，不能声称真实 Codex 任务已自动联动。
+
+## 2026-09-23 字符雨与动画衔接
+
+`bash tools/test.sh` 全部通过；原生固件渲染测试覆盖字符雨占比、字符移动、短暂表情、命令覆盖和 TTL 到期后恢复桌宠。加载图标改为 12 帧闭合轨迹，素材测试检查加载、上传、下载三个循环动画的首尾跳变不大于普通相邻帧。`bash tools/build.sh` 使用仓库指定的 `huge_app` 分区编译通过：程序 1,368,155 字节（43%），静态 RAM 51,688 字节（15%）。
+
+本轮未烧录设备，也未做肉眼真机动画、亮度或电流验收。网页桌宠与 GIF 是固定节奏示意；固件的字符、动作和停留时间仍有随机性。

@@ -693,7 +693,7 @@ uint16_t iconFrameAt(const IconDef *icon, const AnimationSpec &animation, uint32
 void drawMatrixRain(uint8_t frame[kPixels], uint32_t phase) {
   static const uint8_t xPositions[kMatrixLaneCount] = {0, 5};
   static const char glyphs[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  constexpr uint32_t kCycleSteps = 13;
+  constexpr uint32_t kCycleSteps = 19;  // Let the dim glyph leave the 8-row panel before restarting.
   for (uint8_t lane = 0; lane < kMatrixLaneCount; ++lane) {
     const uint32_t lanePhase = phase + static_cast<uint32_t>(lane) * 6 * kMatrixFallStepMs;
     const uint32_t step = lanePhase / kMatrixFallStepMs;

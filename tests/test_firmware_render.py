@@ -77,7 +77,7 @@ uint32_t matrixCycles[kMatrixLaneCount]={UINT32_MAX,UINT32_MAX};
       'parseColor','parseEffect','parseAnimation','parseCommon','parseIdFromRoot','virtualNow','resetPhase','setSpeed',
       'isActive','enterIdle','applyRenderState','mixChannel','mixColor','rainbowColor','colorAt','effectFactor',
       'iconPixel','iconFrameDuration','iconTotalDuration','iconFrameAt','drawMatrixRain','drawPet','drawText','showFrame',
-      'textIsScrolling','speedSupports','render','parseShow','parseText']
+      'textIsScrolling','speedSupports','render','expireState','parseShow','parseText']
     functions = [block(source,rf'^[^\n;{{}}]*\b{name}\([^;{{]*\)\s*\{{') for name in names]
     # Declarations permit source function order to evolve without copying implementations.
     cpp += '\n'.join(fn[:fn.index('{')].strip()+';' for fn in functions)+'\n'
@@ -93,6 +93,16 @@ int main(){
   petMood=0; petMoodStarted=petMoodUntil=0; petMoodColor=0xFFD040; petMoodPeriod=5000;
   for(int i=0;i<kMatrixLaneCount;i++){matrixGlyphs[i]=matrixTrailGlyphs[i]=0;matrixCycles[i]=UINT32_MAX;}
   std::fill(std::begin(pixels.values),std::end(pixels.values),0);
+  if(request["priority"].as<bool>()){
+   enterIdle(0,IDLE_PET); render(0);
+   JsonDocument command;deserializeJson(command,R"({"id":1,"op":"show","icon":"success","duration_ms":100})");
+   RenderState next;const char* error=nullptr;
+   bool parsed=parseShow(command.as<JsonObjectConst>(),next,error);
+   if(parsed){applyRenderState(next,0);render(0);response["overlay_mode"]=state.mode==MODE_SHOW;
+    expireState(101);render(101);response["restored_pet"]=state.mode==MODE_IDLE&&idleMode==IDLE_PET;
+    response["restored_lit"]=std::any_of(std::begin(pixels.values),std::end(pixels.values),[](uint32_t v){return v!=0;});}
+   response["parsed"]=parsed;serializeJson(response,std::cout);std::cout<<std::endl;continue;
+  }
   JsonArrayConst petTimes=request["pet_times"].as<JsonArrayConst>();
   if(!petTimes.isNull()){
    JsonArray samples=response["pet_samples"].to<JsonArray>();
@@ -102,10 +112,11 @@ int main(){
     uint8_t frame[64]={}; const IconDef* icon=drawPet(frame,sample.as<uint32_t>());
     bool stable=petMood==1&&smile;
     for(int i=0;stable&&i<64;i++) stable=frame[i]==iconPixel(smile,smile->staticFrame,i);
-    uint32_t hash=2166136261u; int lit=0;
+    uint32_t hash=2166136261u; int lit=0,leftLit=0;
     for(int i=0;i<64;i++){hash=(hash^frame[i])*16777619u;lit+=frame[i]>0;}
+    for(int y=0;y<8;y++)for(int x=0;x<3;x++)leftLit+=frame[y*8+x]>0;
     JsonObject item=samples.add<JsonObject>(); item["mood"]=petMood; item["icon"]=icon?icon->id:"";
-    item["stable_smile"]=stable; item["lit"]=lit; item["hash"]=hash;
+    item["stable_smile"]=stable; item["lit"]=lit; item["left_lit"]=leftLit; item["hash"]=hash;
    }
    serializeJson(response,std::cout);std::cout<<std::endl;continue;
   }
@@ -191,14 +202,18 @@ def main():
         rain=[sample for sample in samples if sample['mood']==0]
         assert len(rain)/len(samples)>0.8, 'matrix rain must dominate idle time'
         assert len({sample['hash'] for sample in rain[:40]})>=6, 'matrix glyphs must visibly fall'
+        assert samples[18]['left_lit']==0 and samples[19]['left_lit']>0, 'rain trail must leave panel before lane restarts'
         assert all(36000<=duration<=48250 for mood,duration in runs[:-1] if mood==0), 'rain dwell outside 36-48s range'
         assert all(3750<=duration<=4250 for mood,duration in runs[:-1] if mood==1), 'smile dwell should be 4s'
         assert all(2000<=duration<=2500 for mood,duration in runs[:-1] if mood>=2), 'gesture dwell should be one 2.2s cycle'
         assert any(mood>=2 for mood,duration in runs), 'pet gestures must still appear'
+        native.stdin.write('{"priority":true}\n');native.stdin.flush()
+        priority=json.loads(native.stdout.readline())
+        assert all(priority.values()), f'command must override rain and restore it after TTL: {priority}'
     finally:
         for proc in (native,js): proc.stdin.close();proc.wait(timeout=5)
     (BUILD/'parity-failures.json').write_text(json.dumps(failures,indent=2))
     assert not failures, f'{len(failures)}/{len(vectors)} render vectors differ: '+json.dumps(failures[:8])
-    print(f'PASS native firmware/JavaScript parity: {len(vectors)} actual source render vectors, <=1 channel rounding tolerance; 5 invalid text cases rejected; matrix rain and pet cadence verified')
+    print(f'PASS native firmware/JavaScript parity: {len(vectors)} render vectors, 5 invalid texts, matrix rain cadence, command priority and TTL restoration')
 
 if __name__=='__main__': main()

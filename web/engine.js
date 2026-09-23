@@ -185,11 +185,11 @@
     _rainMask(phase) {
       const pixels=Array(64).fill(0);
       for(let lane=0;lane<2;lane++) {
-        const step=Math.floor((phase+lane*1500)/250), cycle=Math.floor(step/13);
+        const step=Math.floor((phase+lane*1500)/250), cycle=Math.floor(step/19);
         for(let trail=0;trail<2;trail++) {
           if(trail && cycle===0) continue;
           const char=MATRIX_GLYPHS[((cycle-trail)*7+lane*11+MATRIX_GLYPHS.length)%MATRIX_GLYPHS.length];
-          const cols=this.data.font[char], top=step%13-4-trail*6;
+          const cols=this.data.font[char], top=step%19-4-trail*6;
           for(let col=0;col<3;col++) for(let row=0;row<5;row++) {
             const sourceCols=col===0?[0,1]:col===1?[2]:[3,4];
             const sourceRows=row===0?[0,1]:row===4?[5,6]:[row+1];
