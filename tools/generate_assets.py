@@ -323,12 +323,12 @@ STATIC_SPECS = [
 def animate_patterns() -> dict[str, tuple[str, list[list[int]], list[int], str]]:
     ring_points = [(1, 3), (1, 4), (2, 5), (3, 6), (4, 6), (5, 5),
                    (6, 4), (6, 3), (5, 2), (4, 1), (3, 1), (2, 2)]
-    loading_steps = []
+    connector_points = [(2, 3), (2, 4), (3, 4), (3, 5), (4, 5), (4, 4),
+                        (5, 4), (5, 3), (4, 3), (4, 2), (3, 2), (3, 3)]
     step_durations = []
     rng = random.Random(0xB11A)
     paces = [rng.randint(280, 700) for _ in range(8)]
     for offset in range(len(ring_points) * 8):
-        loading_steps.append(ring_points[offset % len(ring_points)])
         lap, step = divmod(offset, len(ring_points))
         progress = step / len(ring_points)
         eased = progress * progress * (3 - 2 * progress)
@@ -338,16 +338,23 @@ def animate_patterns() -> dict[str, tuple[str, list[list[int]], list[int], str]]
 
     loading = []
     loading_durations = []
-    for offset, (current, following) in enumerate(zip(loading_steps, loading_steps[1:] + loading_steps[:1])):
-        duration = step_durations[offset]
-        current_index = current[0] * 8 + current[1]
-        following_index = following[0] * 8 + following[1]
+
+    def blade(index: int) -> list[int]:
+        leading = ring_points[index % len(ring_points)]
+        connector = connector_points[index % len(connector_points)]
+        pixels = [0] * 64
+        points = [(ring_points[(index - back) % len(ring_points)], level)
+                  for back, level in ((1, 110), (2, 100), (3, 90))]
+        points.extend(((leading, 190), (connector, 130)))
+        for (row, column), level in points:
+            pixels[row * 8 + column] = level
+        return pixels
+
+    for offset, duration in enumerate(step_durations):
+        start = blade(offset)
+        end = blade(offset + 1)
         for subframe in range(4):
-            transferred = round(220 * subframe / 4)
-            pixels = [0] * 64
-            pixels[current_index] = 220 - transferred
-            pixels[following_index] = transferred
-            loading.append(pixels)
+            loading.append([round(a + (b - a) * subframe / 4) for a, b in zip(start, end)])
             loading_durations.append(duration // 4 + (subframe < duration % 4))
 
     waiting_patterns = [

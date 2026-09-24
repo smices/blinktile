@@ -48,7 +48,7 @@ Preferences preferences;
 enum Source : uint8_t { SOURCE_SERIAL, SOURCE_WS, SOURCE_BLE };
 enum Mode : uint8_t { MODE_IDLE, MODE_SHOW, MODE_TEXT };
 enum IdleMode : uint8_t { IDLE_OFF, IDLE_PET };
-enum ColorMode : uint8_t { COLOR_SOLID, COLOR_STEP, COLOR_GRADIENT, COLOR_RAINBOW_CYCLE, COLOR_RAINBOW_FLOW };
+enum ColorMode : uint8_t { COLOR_SOLID, COLOR_STEP, COLOR_GRADIENT, COLOR_RAINBOW_CYCLE, COLOR_RAINBOW_FLOW, COLOR_RAINBOW_ORBIT };
 enum EffectType : uint8_t { EFFECT_NONE, EFFECT_BREATHE, EFFECT_ALTERNATE, EFFECT_BLINK };
 
 struct QueueItem {
@@ -365,6 +365,7 @@ bool parseColor(JsonVariantConst value, bool provided, uint32_t fallback, ColorS
   else if (strcmp(mode, "gradient") == 0) out.mode = COLOR_GRADIENT;
   else if (strcmp(mode, "rainbow_cycle") == 0) out.mode = COLOR_RAINBOW_CYCLE;
   else if (strcmp(mode, "rainbow_flow") == 0) out.mode = COLOR_RAINBOW_FLOW;
+  else if (strcmp(mode, "rainbow_orbit") == 0) out.mode = COLOR_RAINBOW_ORBIT;
   else { error = "invalid_color_mode"; return false; }
 
   if (object.containsKey("period_ms")) {
@@ -391,7 +392,7 @@ bool parseColor(JsonVariantConst value, bool provided, uint32_t fallback, ColorS
   }
   if (out.mode == COLOR_SOLID && out.count != 1) { error = "solid_requires_one_color"; return false; }
   if ((out.mode == COLOR_STEP || out.mode == COLOR_GRADIENT) && out.count < 2) { error = "color_requires_two_values"; return false; }
-  if ((out.mode == COLOR_RAINBOW_CYCLE || out.mode == COLOR_RAINBOW_FLOW) && object.containsKey("values")) {
+  if ((out.mode == COLOR_RAINBOW_CYCLE || out.mode == COLOR_RAINBOW_FLOW || out.mode == COLOR_RAINBOW_ORBIT) && object.containsKey("values")) {
     error = "rainbow_does_not_accept_values";
     return false;
   }
@@ -637,6 +638,10 @@ uint32_t colorAt(const ColorSpec &spec, uint8_t x, uint8_t y, uint32_t phase) {
   }
   if (spec.mode == COLOR_RAINBOW_FLOW) {
     return rainbowColor((static_cast<float>(phase % spec.periodMs) / spec.periodMs) + x / 8.0f);
+  }
+  if (spec.mode == COLOR_RAINBOW_ORBIT) {
+    return rainbowColor((static_cast<float>(phase % spec.periodMs) / spec.periodMs) +
+                        atan2f(static_cast<float>(y) - 3.5f, static_cast<float>(x) - 3.5f) / 6.2831853f);
   }
   const float position = static_cast<float>(phase % spec.periodMs) / spec.periodMs;
   if (spec.mode == COLOR_STEP) return spec.values[min<uint8_t>(spec.count - 1, static_cast<uint8_t>(position * spec.count))];
@@ -915,10 +920,11 @@ void addState(JsonDocument &response, uint32_t now) {
     }
     JsonObject color = content["color"].to<JsonObject>();
     color["mode"] = state.color.mode == COLOR_SOLID ? "solid" : state.color.mode == COLOR_STEP ? "step" :
-      state.color.mode == COLOR_GRADIENT ? "gradient" : state.color.mode == COLOR_RAINBOW_CYCLE ? "rainbow_cycle" : "rainbow_flow";
+      state.color.mode == COLOR_GRADIENT ? "gradient" : state.color.mode == COLOR_RAINBOW_CYCLE ? "rainbow_cycle" :
+      state.color.mode == COLOR_RAINBOW_FLOW ? "rainbow_flow" : "rainbow_orbit";
     color["period_ms"] = state.color.periodMs;
     color["scope"] = state.color.all ? "all" : "primary";
-    if (state.color.mode != COLOR_RAINBOW_CYCLE && state.color.mode != COLOR_RAINBOW_FLOW) {
+    if (state.color.mode != COLOR_RAINBOW_CYCLE && state.color.mode != COLOR_RAINBOW_FLOW && state.color.mode != COLOR_RAINBOW_ORBIT) {
       JsonArray values = color["values"].to<JsonArray>();
       for (uint8_t index = 0; index < state.color.count; ++index) {
         char value[8];

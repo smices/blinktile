@@ -94,7 +94,7 @@ assert(estimated <= 501, `power budget: ${estimated}`);
 console.log('PASS engine: atomic validation, 25% brightness, TTL, pause, renewal, pet, text, speed, power');
 
 const modes = fresh();
-for (const mode of ['solid','step','gradient','rainbow_cycle','rainbow_flow']) {
+for (const mode of ['solid','step','gradient','rainbow_cycle','rainbow_flow','rainbow_orbit']) {
   const color = {mode,period_ms:4000};
   if (mode==='solid') color.values=['pink'];
   if (mode==='step'||mode==='gradient') color.values=['red','blue'];

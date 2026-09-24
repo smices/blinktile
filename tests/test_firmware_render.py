@@ -165,7 +165,7 @@ def main():
     vectors=[]
     for name,icon in data['icons'].items():
         vectors += [({'id':1,'op':'show','icon':name},t) for t in (0,icon['period_ms']//2,icon['period_ms']-1)]
-    for color in ('solid','step','gradient','rainbow_cycle','rainbow_flow'):
+    for color in ('solid','step','gradient','rainbow_cycle','rainbow_flow','rainbow_orbit'):
         spec={'mode':color,'period_ms':4000}
         if color=='solid': spec['values']=['white']
         elif color in ('step','gradient'): spec['values']=['red','blue']

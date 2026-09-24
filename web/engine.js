@@ -80,7 +80,7 @@
       const rawColor = c.color === undefined ? {} : c.color;
       fields(rawColor,['mode','values','period_ms','scope']);
       c.color = {mode:'solid',period_ms:5000,scope:'primary',...rawColor};
-      if (!['solid','step','gradient','rainbow_cycle','rainbow_flow'].includes(c.color.mode)) fail('invalid_color_mode');
+      if (!['solid','step','gradient','rainbow_cycle','rainbow_flow','rainbow_orbit'].includes(c.color.mode)) fail('invalid_color_mode');
       if (!['primary','all'].includes(c.color.scope)) fail('invalid_scope');
       integer(c.color.period_ms,100,60000,'invalid_period');
       if (c.color.mode.startsWith('rainbow')) {
@@ -218,7 +218,7 @@
         let color;
         if(c.color.mode==='solid') color=palette[0];
         else if(c.color.mode==='step') color=palette[Math.floor(colorPhase*palette.length)%palette.length];
-        else color=blend(palette,colorPhase+(c.color.mode==='rainbow_flow'?(i%8)/8:0));
+        else color=blend(palette,colorPhase+(c.color.mode==='rainbow_flow'?(i%8)/8:c.color.mode==='rainbow_orbit'?Math.atan2(Math.floor(i/8)-3.5,(i%8)-3.5)/(2*Math.PI):0));
         return color.map(v=>Math.round(v*level/255*intensity*this.brightness/255));
       });
       const load=pixels.flat().reduce((a,b)=>a+b,0)*20/255;
