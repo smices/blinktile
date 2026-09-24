@@ -17,6 +17,7 @@
 namespace {
 
 constexpr uint8_t kLedPin = 2;
+constexpr uint8_t kPairButtonPin = 9;  // ESP32-C3 SuperMini BOOT button, active low after startup.
 constexpr uint8_t kWidth = 8;
 constexpr uint8_t kHeight = 8;
 constexpr uint16_t kPixels = kWidth * kHeight;
@@ -158,6 +159,8 @@ String wifiSsid;
 String wifiPassword;
 String controlToken;
 String setupPassword;
+uint32_t pairButtonDownAt = 0;
+bool pairButtonUsed = false;
 String apName;
 bool apRunning = false;
 bool wifiAttempting = false;
@@ -1583,6 +1586,23 @@ bool hasEmbeddedNul(JsonObjectConst object) {
   return false;
 }
 
+bool physicalBlePairReady(uint32_t now) {
+  if (digitalRead(kPairButtonPin) != LOW) {
+    pairButtonDownAt = 0;
+    pairButtonUsed = false;
+    return false;
+  }
+  if (!pairButtonDownAt) pairButtonDownAt = now ? now : 1;
+  return !pairButtonUsed && timeElapsed(now, pairButtonDownAt, 1000);
+}
+
+bool authAccepted(Source source, const char *token, bool physicalReady) {
+  if (source == SOURCE_SERIAL || (token && secureEqual(token, controlToken.c_str()))) return true;
+  if (source != SOURCE_BLE || !physicalReady) return false;
+  pairButtonUsed = true;
+  return true;
+}
+
 void handleRequest(const QueueItem &item, uint32_t now) {
   activeResponseSession = item.transportSession;
   JsonDocument rootDoc;
@@ -1606,7 +1626,7 @@ void handleRequest(const QueueItem &item, uint32_t now) {
 
   if (strcmp(op, "auth") == 0) {
     const char *token = root["token"].as<const char *>();
-    const bool accepted = item.source == SOURCE_SERIAL || (token && secureEqual(token, controlToken.c_str()));
+    const bool accepted = authAccepted(item.source, token, physicalBlePairReady(now));
     if (!accepted) {
       if (item.source == SOURCE_WS && item.client < WEBSOCKETS_SERVER_CLIENT_MAX && item.transportSession == wsSession[item.client]) wsAuthenticated[item.client] = false;
       if (item.source == SOURCE_BLE && !setBleAuthentication(item.transportSession, false)) return;
@@ -1775,6 +1795,7 @@ void loadSecrets() {
 
 void firmwareSetup() {
   Serial.begin(115200);
+  pinMode(kPairButtonPin, INPUT_PULLUP);
   pixels.begin();
   pixels.clear();
   pixels.show();
@@ -1794,6 +1815,7 @@ void firmwareSetup() {
 
 void firmwareLoop() {
   const uint32_t now = millis();
+  physicalBlePairReady(now);
   webSocket.loop();
   http.handleClient();
   serialTick();

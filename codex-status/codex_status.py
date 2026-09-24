@@ -25,6 +25,7 @@ BLE_WRITE_UUID = '6d8f0001-6f52-4af0-9a2c-7b6143b8e100'
 BLE_NOTIFY_UUID = '6d8f0002-6f52-4af0-9a2c-7b6143b8e100'
 BLE_CHUNK_SIZE = 20
 BLE_MAX_RESPONSE = 2048
+BLE_PAIRING_TIMEOUT = 30
 
 
 def safe_identifier(value):
@@ -262,6 +263,33 @@ class BleDevice:
                     return reply
 
 
+async def authenticate_ble(device, token=None, clock=None, sleep=None):
+    if token:
+        auth = await device.command({'id': 1, 'op': 'auth', 'token': token})
+        if not isinstance(auth, dict) or auth.get('ok') is not True:
+            raise ValueError('BlinkTile BLE authentication failed')
+        return
+
+    clock = time.monotonic if clock is None else clock
+    sleep = asyncio.sleep if sleep is None else sleep
+    deadline = clock() + BLE_PAIRING_TIMEOUT
+    request_id = 0
+    while clock() < deadline:
+        request_id += 1
+        try:
+            reply = await asyncio.wait_for(
+                device.command({'id': request_id, 'op': 'auth'}),
+                timeout=deadline - clock())
+        except TimeoutError:
+            break
+        if isinstance(reply, dict) and reply.get('ok') is True:
+            return
+        remaining = deadline - clock()
+        if remaining > 0:
+            await sleep(min(1, remaining))
+    raise ValueError('BlinkTile BLE button pairing timed out; hold BOOT for at least 1 second and retry')
+
+
 async def find_ble_device(scanner, name='BlinkTile', address=None, timeout=8):
     found = await scanner.discover(timeout=timeout, return_adv=True,
                                    service_uuids=[BLE_SERVICE_UUID])
@@ -336,8 +364,6 @@ async def run_bridge(args):
 
     if args.ble:
         token = os.environ.get(args.token_env)
-        if not token:
-            raise ValueError(f'missing token environment variable: {args.token_env}')
         try:
             from bleak import BleakClient, BleakScanner
             from bleak.exc import BleakError
@@ -350,9 +376,13 @@ async def run_bridge(args):
             async with BleakClient(peripheral) as client:
                 device = BleDevice(client)
                 await device.start()
-                auth = await device.command({'id': 1, 'op': 'auth', 'token': token})
-                if not isinstance(auth, dict) or auth.get('ok') is not True:
-                    raise ValueError('BlinkTile BLE authentication failed')
+                if token:
+                    await authenticate_ble(device, token)
+                else:
+                    print('When the board is running, hold BOOT for at least 1 second to pair over BLE.',
+                          flush=True)
+                    await authenticate_ble(device)
+                    print('BlinkTile BLE authenticated; release BOOT.', flush=True)
                 await serve_hooks(args, device)
         except BleakError as error:
             raise ValueError(f'Bluetooth operation failed: {type(error).__name__}') from None

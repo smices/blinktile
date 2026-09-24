@@ -225,7 +225,10 @@
       var version=++connectVersion; syncing=true;
       try {
         if(kind==='ws')await client.connectWebSocket(byId('ws-url').value,byId('token').value);
-        else await client.connectBLE(byId('token').value);
+        else {
+          if(!byId('token').value)setNotice('无控制密钥：选择 BlinkTile 后按住设备 BOOT 键约 2 秒，连接会自动重试。');
+          await client.connectBLE(byId('token').value);
+        }
         if(version===connectVersion)await client.syncClock();
         if(version===connectVersion)await synchronize(version);
       } catch(error){if(version===connectVersion){syncing=false;setNotice(error.message,true);}}

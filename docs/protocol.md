@@ -12,7 +12,7 @@
 | BLE notify | `6d8f0002-6f52-4af0-9a2c-7b6143b8e100` |
 | USB 串口 | 115200，换行分隔 JSON；本机配置和恢复入口 |
 
-无线连接先认证：`{"id":1,"op":"auth","token":"<device-control-token>"}`。密钥不放在 URL、不自动保存到浏览器持久存储、不进入普通日志。局域网明文 WebSocket 不提供 TLS 保密性，请勿映射到公网。
+无线连接先认证：WebSocket 使用 `{"id":1,"op":"auth","token":"<device-control-token>"}`；BLE 可同样使用密钥，或在设备运行中按住 BOOT 键至少 1 秒后发送 `{"id":1,"op":"auth"}`，仅授权当前 BLE 连接。无密钥 BLE 认证不返回长期密钥，离线重连需再次按键。密钥不放在 URL、不自动保存到浏览器持久存储、不进入普通日志。局域网明文 WebSocket 不提供 TLS 保密性，请勿映射到公网。
 
 USB 串口无需 `auth`，并额外提供两个仅限串口的配置命令：
 

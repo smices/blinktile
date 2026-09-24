@@ -92,7 +92,7 @@
       <div class="section-heading"><div><p class="eyebrow">真实设备</p><h2 id="connection-title">设备连接</h2></div><p class="muted">密钥只在当前页面内存中使用。</p></div>
       <div class="connection-grid">
         <label for="ws-url">WebSocket 地址<input id="ws-url" type="url" value="ws://localhost:8765/ws" spellcheck="false"></label>
-        <label for="token">控制密钥<input id="token" type="password" autocomplete="off"></label>
+        <label for="token">控制密钥（BLE 可留空，按住设备 BOOT 键授权）<input id="token" type="password" autocomplete="off"></label>
         <div class="button-row connection-actions"><button id="connect-ws" type="button" class="primary">连接 WebSocket</button><button id="connect-ble" type="button">选择 BLE 设备</button><button id="disconnect" type="button">断开</button><button id="provision" type="button">打开配网热点</button></div>
       </div>
     </section>

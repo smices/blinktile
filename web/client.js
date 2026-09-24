@@ -41,10 +41,16 @@
       },2000);
     }
     async _auth(token,generation) {
-      const result=await this.send({op:'auth',token});this._alive(generation);
-      if(!result.ok) throw new Error(result.error||'unauthorized');
-      this.simulator=result.simulator===true; this.connected=true;this._event('authenticated');
-      return result;
+      const physical=this.mode==='ble'&&!token;
+      for(let attempt=0;;attempt++) {
+        const result=await this.send(token?{op:'auth',token}:{op:'auth'});this._alive(generation);
+        if(result.ok) {
+          this.simulator=result.simulator===true; this.connected=true;this._event('authenticated');
+          return result;
+        }
+        if(!physical||result.error!=='unauthorized'||attempt>=14) throw new Error(physical&&attempt>=14?'配对超时：请按住设备 BOOT 键重试':result.error||'unauthorized');
+        await new Promise(resolve=>setTimeout(resolve,1000));this._alive(generation);
+      }
     }
     async connectWebSocket(url,token) {
       this.disconnect(); const generation=this._generation; this.mode='websocket';

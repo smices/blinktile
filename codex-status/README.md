@@ -15,24 +15,19 @@ python3 -m venv .venv
 
 `/dev/cu.usbmodemXXXX` 是占位符，先用 `arduino-cli board list` 核对实际串口。若设备已联网，也可使用 `--ws-url ws://设备IP:81/ws --token-env ICONSHOW_TOKEN`；把设备控制密钥放在 `ICONSHOW_TOKEN` 环境变量中，不要写入命令、仓库或日志。桥接仅在 `127.0.0.1:8766` 接收 hook。本工具不会发起配网或切换电脑网络。可用模拟器的 `ws://127.0.0.1:8765/ws` 做软件测试。终止桥接后，灯板上最后一条状态会在其有效期届满后回到桌宠。
 
-也可直接通过 Bluetooth LE 连接，无需加入 Wi-Fi。Bleak 是可选依赖，只在此模式安装；设备必须正在广播。按提示静默输入控制密钥，再启动桥接：
+也可直接通过 Bluetooth LE 连接，无需 USB、控制密钥、Wi-Fi 或浏览器。Bleak 是可选依赖，只在此模式安装；设备必须正在广播。
 
 若 USB 桥接仍占用本机 `8766` 端口，先在运行它的终端按 `Ctrl+C` 停止；USB 与 BLE 桥接不要同时启动。macOS 首次使用时，还需允许运行 Python 的终端访问蓝牙。
 
 ```bash
 .venv/bin/python -m pip install bleak
-printf 'Control token (input hidden): '
-read -s -r ICONSHOW_TOKEN
-printf '\n'
-export ICONSHOW_TOKEN
-.venv/bin/python codex_status.py bridge --ble --ble-name BlinkTile --listen-port 8766
-unset ICONSHOW_TOKEN
+.venv/bin/python codex_status.py bridge --ble --listen-port 8766
 ```
 
-控制密钥的获取方法见[设备配置](../docs/hardware.md)。`ICONSHOW_TOKEN` 是兼容旧配置保留的环境变量名，不是设备广播名。
+先烧录支持 BOOT 物理授权的新固件。设备运行后按住板上的 BOOT 键（不要同时按 RESET）约 2 秒，直到桥接认证成功后松开。桥接在同一 BLE 连接上最多尝试 30 秒；该物理操作只授权本次连接，不读取、返回或保存长期控制密钥。若已有控制密钥，仍可通过 `ICONSHOW_TOKEN` 环境变量直接认证，不必按 BOOT；变量名是兼容旧配置保留的名称，不是设备广播名。
 若设备仍运行改名前的固件，广播名仍是 `IconShow`，请临时改用 `--ble-name IconShow`；烧录新版固件后才会广播 `BlinkTile`。
 
-默认扫描广播名为 `BlinkTile` 且提供本项目 BLE 服务的设备。若附近有多个匹配设备，程序会列出地址并停止；按提示重新运行并加上 `--ble-address <地址>`（macOS 上可能是系统 UUID）。也可用 `--ble-name` 选择自定义设备名。协议使用固件的服务 UUID `6d8f0000-6f52-4af0-9a2c-7b6143b8e100`、写特征 UUID `6d8f0001-6f52-4af0-9a2c-7b6143b8e100` 和通知特征 UUID `6d8f0002-6f52-4af0-9a2c-7b6143b8e100`；JSON 命令以换行结束，写入按 20 字节分块，响应通知会先拼成完整行再解析。认证仍使用 `ICONSHOW_TOKEN`。
+默认扫描广播名为 `BlinkTile` 且提供本项目 BLE 服务的设备。若附近有多个匹配设备，程序会列出地址并停止；按提示重新运行并加上 `--ble-address <地址>`（macOS 上可能是系统 UUID）。也可用 `--ble-name` 选择自定义设备名。协议使用固件的服务 UUID `6d8f0000-6f52-4af0-9a2c-7b6143b8e100`、写特征 UUID `6d8f0001-6f52-4af0-9a2c-7b6143b8e100` 和通知特征 UUID `6d8f0002-6f52-4af0-9a2c-7b6143b8e100`；JSON 命令以换行结束，写入按 20 字节分块，响应通知会先拼成完整行再解析。
 
 在 Codex 用户级 `hooks.json` 中，为下列事件各配置一个命令 hook。将示例中的 `/ABS/PATH/TO/IconShow` 换成此项目的实际绝对路径；不要直接复制占位路径。用户级配置可覆盖不同项目中的 Codex 会话。不要替换已有 hooks，合并对应事件数组即可。
 

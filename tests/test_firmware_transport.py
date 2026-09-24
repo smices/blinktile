@@ -65,6 +65,13 @@ uint32_t millis() { return 0; }
 void startAp() { WiFi.mode(WIFI_AP_STA); WiFi.softAP(apName.c_str(), setupPassword.c_str()); apRunning = true; apClosePending = false; scanState = -2; }
 void stopAp() { apRunning = false; }
 enum Source : uint8_t { SOURCE_SERIAL, SOURCE_WS, SOURCE_BLE };
+constexpr uint8_t kPairButtonPin = 9;
+constexpr int LOW = 0;
+int buttonLevel = 1;
+int digitalRead(uint8_t pin) { assert(pin == kPairButtonPin); return buttonLevel; }
+uint32_t pairButtonDownAt = 0;
+bool pairButtonUsed = false;
+String controlToken("secret");
 constexpr uint8_t WEBSOCKETS_SERVER_CLIENT_MAX = 4;
 struct QueueItem { Source source; uint8_t client; uint32_t transportSession; };
 struct JsonObjectConst {};
@@ -72,8 +79,25 @@ bool wsAuthenticated[4] = {}; uint32_t wsSession[4] = {}; bool bleConnected = fa
 int queueMux;
 #define portENTER_CRITICAL(x) ((void)0)
 #define portEXIT_CRITICAL(x) ((void)0)
-''' + block("bool ensureAuth(") + "\n" + block("bool setBleAuthentication(") + "\n" + block("void wifiTick(") + r'''
+''' + block("bool secureEqual(") + "\n" + block("bool physicalBlePairReady(") + "\n" + block("bool authAccepted(") + "\n" + block("bool ensureAuth(") + "\n" + block("bool setBleAuthentication(") + "\n" + block("void wifiTick(") + r'''
 int main() {
+  assert(!physicalBlePairReady(100));
+  buttonLevel = LOW;
+  assert(!physicalBlePairReady(1000));
+  assert(!physicalBlePairReady(1999));
+  assert(physicalBlePairReady(2000));
+  assert(authAccepted(SOURCE_BLE, nullptr, true));
+  assert(!physicalBlePairReady(2010));
+  assert(!authAccepted(SOURCE_BLE, nullptr, physicalBlePairReady(2010)));
+  assert(!authAccepted(SOURCE_WS, nullptr, true));
+  assert(authAccepted(SOURCE_BLE, "secret", false));
+  assert(authAccepted(SOURCE_SERIAL, nullptr, false));
+  buttonLevel = 1;
+  assert(!physicalBlePairReady(2001));
+  assert(!authAccepted(SOURCE_BLE, nullptr, false));
+  buttonLevel = LOW;
+  assert(!physicalBlePairReady(3000));
+  assert(physicalBlePairReady(4000));
   wifiSsid = "saved"; wifiPassword = "pw"; WiFi.statusValue = WL_CONNECTED; WiFi.ssid = "saved";
   wifiTick(31000); assert(WiFi.apStarts == 0);
   WiFi.statusValue = 0; apRunning = false; wifiAttempting = false; disconnectedAt = 100; savedRetryAt = 999999;
@@ -92,7 +116,7 @@ int main() {
         path.write_text(cpp)
         subprocess.run(["c++", "-std=c++17", str(path), "-o", str(binary)], check=True)
         subprocess.run([str(binary)], check=True)
-    print("PASS firmware transport helpers: client limit, queue backpressure, online AP guard, offline fallback, BLE session isolation")
+    print("PASS firmware transport helpers: client limit, queue backpressure, online AP guard, offline fallback, BLE session isolation and button auth")
 
 
 if __name__ == "__main__":

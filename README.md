@@ -14,7 +14,7 @@ BLE 广播名为 `BlinkTile`。源码目录、设备热点前缀 `IconShow-` 和
 python3 -m http.server 8000 --bind 127.0.0.1 --directory web
 ```
 
-在支持的桌面 Chrome/Edge 打开 `http://127.0.0.1:8000`。选图标或输入 `100%`，调整参数，再点击发送。WebSocket 地址为 `ws://设备IP:81/ws`。通过 BLE 连接时，先在设备连接区填入 USB 串口 `secrets` 命令取得的 `control_token`，点击“选择 BLE 设备”，在浏览器弹窗中选择 `BlinkTile`；连接成功后再点击发送。BLE 不需要配网，浏览器不支持 Web Bluetooth 时可改用 WebSocket。完整步骤见[设备配置与验收](docs/hardware.md)。
+在支持的桌面 Chrome/Edge 打开 `http://127.0.0.1:8000`。选图标或输入 `100%`，调整参数，再点击发送。WebSocket 地址为 `ws://设备IP:81/ws`。网页控制只是可选入口：新版固件刷入后，BLE 可留空控制密钥，选择 `BlinkTile` 并按住设备 BOOT 键完成本次连接的物理授权。[Codex 状态桥接](codex-status/README.md)直接走 BLE 时不需要本地 HTTP 服务或浏览器。完整连接说明见[设备配置与验收](docs/hardware.md)。
 
 完整资源包应一起保留，HTML 引用同目录脚本和 `assets/`，不依赖 CDN。GIF 展示默认效果，实时预览展示当前参数；显示器与灯珠的实际色彩和亮度仍有差异。
 

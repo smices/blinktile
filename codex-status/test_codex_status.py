@@ -18,7 +18,8 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'codex-status'))
 from codex_status import (ACTOR_TIMEOUT, BLE_NOTIFY_UUID, BLE_SERVICE_UUID, BLE_WRITE_UUID,
-                          BleDevice, SerialDevice, StatusBridge, find_ble_device)  # noqa: E402
+                          BleDevice, SerialDevice, StatusBridge, authenticate_ble,
+                          find_ble_device)  # noqa: E402
 
 
 class FakeDevice:
@@ -153,6 +154,44 @@ class CodexStatusTests(unittest.TestCase):
             self.assertEqual(set(client.write_uuids), {BLE_WRITE_UUID})
             self.assertEqual(client.notify_uuid, BLE_NOTIFY_UUID)
             self.assertTrue(client.assert_response)
+
+        asyncio.run(exercise())
+
+    def test_ble_tokenless_pairing_retries_and_token_auth_stays_single_attempt(self):
+        async def exercise():
+            now = [0.0]
+
+            class FakeAuthDevice:
+                def __init__(self, replies):
+                    self.replies = iter(replies)
+                    self.commands = []
+
+                async def command(self, command):
+                    self.commands.append(command.copy())
+                    return next(self.replies)
+
+            async def advance(seconds):
+                now[0] += seconds
+
+            pairing = FakeAuthDevice([{'ok': False}, {'ok': True}])
+            await authenticate_ble(pairing, clock=lambda: now[0], sleep=advance)
+            self.assertEqual([command['op'] for command in pairing.commands], ['auth', 'auth'])
+            self.assertEqual([command['id'] for command in pairing.commands], [1, 2])
+            self.assertTrue(all('token' not in command for command in pairing.commands))
+            self.assertEqual(now[0], 1.0)
+
+            now[0] = 0.0
+            denied = FakeAuthDevice([{'ok': False}] * 30)
+            with self.assertRaisesRegex(ValueError, 'pairing timed out'):
+                await authenticate_ble(denied, clock=lambda: now[0], sleep=advance)
+            self.assertEqual(len(denied.commands), 30)
+            self.assertEqual(now[0], 30.0)
+            self.assertTrue(all('token' not in command for command in denied.commands))
+
+            authenticated = FakeAuthDevice([{'ok': True}])
+            await authenticate_ble(authenticated, token='configured-token')
+            self.assertEqual(authenticated.commands,
+                             [{'id': 1, 'op': 'auth', 'token': 'configured-token'}])
 
         asyncio.run(exercise())
 
