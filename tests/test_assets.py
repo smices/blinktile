@@ -13,26 +13,35 @@ assert data['font']['a'] != data['font']['A'], 'Lowercase must remain lowercase'
 required = {'loading', 'waiting', 'upload', 'download', 'smile', 'wink', 'heart', 'success', 'error'}
 assert required <= data['icons'].keys()
 loading = data['icons']['loading']['frames']
-assert len(loading) == 8 * 12, 'loading should make eight 12-step orbits'
+assert len(loading) == 8 * 12 * 4, 'loading should have four subframes per logical step'
 loading_durations = [frame['duration_ms'] for frame in loading]
-loading_laps = [sum(loading_durations[i:i + 12]) for i in range(0, len(loading_durations), 12)]
-assert 30_000 <= sum(loading_durations) <= 50_000, 'loading loop should last 30 to 50 seconds'
-assert all(3_000 <= duration <= 6_000 for duration in loading_laps), 'each loading orbit should last 3 to 6 seconds'
-assert min(loading_durations) >= 250 and max(loading_durations) <= 500
-assert len(set(loading_durations)) > 1, 'loading step speeds should vary'
-assert max(abs(loading_durations[i] - loading_durations[(i + 1) % len(loading_durations)])
-           for i in range(len(loading_durations))) <= 40, 'loading speed should change smoothly at every step'
+step_durations = [sum(loading_durations[i:i + 4]) for i in range(0, len(loading_durations), 4)]
+assert all(max(loading_durations[i:i + 4]) - min(loading_durations[i:i + 4]) <= 1
+           for i in range(0, len(loading_durations), 4)), 'subframes should evenly divide each step'
+loading_laps = [sum(step_durations[i:i + 12]) for i in range(0, len(step_durations), 12)]
+assert min(step_durations) >= 280 and max(step_durations) <= 700
+assert all(max(step_durations[i:i + 12]) - min(step_durations[i:i + 12]) >= 100
+           for i in range(0, len(step_durations), 12)), 'each orbit should have a visible speed range'
+assert max(loading_laps) - min(loading_laps) >= 2_000, 'loading orbit periods should span at least 2 seconds'
+assert max(abs(step_durations[i] - step_durations[(i + 1) % len(step_durations)])
+           for i in range(len(step_durations))) <= 100, 'loading speed should change smoothly at every step'
 loading_ring = [(1, 3), (1, 4), (2, 5), (3, 6), (4, 6), (5, 5),
                 (6, 4), (6, 3), (5, 2), (4, 1), (3, 1), (2, 2)]
+ring_indices = [row * 8 + column for row, column in loading_ring]
 for offset, frame in enumerate(loading):
     lit = {index for index, pixel in enumerate(frame['pixels']) if pixel}
-    expected = {loading_ring[(offset + trail) % len(loading_ring)][0] * 8 +
-                loading_ring[(offset + trail) % len(loading_ring)][1] for trail in range(3)}
-    next_lit = {index for index, pixel in enumerate(loading[(offset + 1) % len(loading)]['pixels']) if pixel}
-    next_expected = {loading_ring[(offset + trail + 1) % len(loading_ring)][0] * 8 +
-                     loading_ring[(offset + trail + 1) % len(loading_ring)][1] for trail in range(3)}
-    assert len(lit) == 3 and lit == expected, 'loading must keep exactly three pixels on the ring'
-    assert next_lit == next_expected, 'loading highlights should advance one ring step per frame'
+    step, subframe = divmod(offset, 4)
+    current = ring_indices[step % len(ring_indices)]
+    following = ring_indices[(step + 1) % len(ring_indices)]
+    transferred = round(220 * subframe / 4)
+    expected = [0] * 64
+    expected[current], expected[following] = 220 - transferred, transferred
+    assert frame['pixels'] == expected, 'loading should hand off linearly between neighboring ring points'
+    assert len(lit) <= 2, 'loading should light at most two pixels during transitions'
+    assert sum(frame['pixels']) == 220, 'loading light intensity should stay constant'
+    assert lit <= {current, following}, 'loading light should remain on the ring'
+assert loading[0]['pixels'][ring_indices[0]] == 220
+assert loading[-1]['pixels'][ring_indices[-1]] == 55 and loading[-1]['pixels'][ring_indices[0]] == 165
 for name in ('upload', 'download', 'waiting', 'smile', 'wink'):
     masks = {tuple(p > 0 for p in f['pixels']) for f in data['icons'][name]['frames']}
     assert len(masks) > 1, f'{name}: brightness-only pulsing is not a shape animation'

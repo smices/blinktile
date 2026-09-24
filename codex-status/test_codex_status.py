@@ -228,7 +228,7 @@ class CodexStatusTests(unittest.TestCase):
             await bridge.tick()
             owned = device.current_id
             self.assertEqual(device.commands[-1]['icon'], 'loading')
-            self.assertEqual(device.commands[-1]['color'], {'mode': 'rainbow_flow', 'period_ms': 5300})
+            self.assertEqual(device.commands[-1]['color'], {'mode': 'rainbow_cycle', 'period_ms': 12000})
             bridge.accept({'hook_event_name': 'PermissionRequest', 'session_id': 's1', 'turn_id': 't1'})
             await bridge.tick()
             waiting = device.commands[-1]

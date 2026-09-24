@@ -323,22 +323,32 @@ STATIC_SPECS = [
 def animate_patterns() -> dict[str, tuple[str, list[list[int]], list[int], str]]:
     ring_points = [(1, 3), (1, 4), (2, 5), (3, 6), (4, 6), (5, 5),
                    (6, 4), (6, 3), (5, 2), (4, 1), (3, 1), (2, 2)]
-    loading = []
-    loading_durations = []
+    loading_steps = []
+    step_durations = []
     rng = random.Random(0xB11A)
-    paces = [rng.randint(280, 520) for _ in range(8)]
+    paces = [rng.randint(280, 700) for _ in range(8)]
     for offset in range(len(ring_points) * 8):
-        pixels = [0] * 64
-        for trail, level in enumerate((220, 140, 80)):
-            row, column = ring_points[(offset + trail) % len(ring_points)]
-            pixels[row * 8 + column] = level
-        loading.append(pixels)
+        loading_steps.append(ring_points[offset % len(ring_points)])
         lap, step = divmod(offset, len(ring_points))
         progress = step / len(ring_points)
         eased = progress * progress * (3 - 2 * progress)
         pace = paces[lap] + (paces[(lap + 1) % len(paces)] - paces[lap]) * eased
-        duration = round(pace + 6 * math.sin(math.tau * progress))
-        loading_durations.append(max(250, min(500, duration)))
+        duration = round(pace + 84 * math.sin(math.tau * progress))
+        step_durations.append(max(280, min(700, duration)))
+
+    loading = []
+    loading_durations = []
+    for offset, (current, following) in enumerate(zip(loading_steps, loading_steps[1:] + loading_steps[:1])):
+        duration = step_durations[offset]
+        current_index = current[0] * 8 + current[1]
+        following_index = following[0] * 8 + following[1]
+        for subframe in range(4):
+            transferred = round(220 * subframe / 4)
+            pixels = [0] * 64
+            pixels[current_index] = 220 - transferred
+            pixels[following_index] = transferred
+            loading.append(pixels)
+            loading_durations.append(duration // 4 + (subframe < duration % 4))
 
     waiting_patterns = [
         ("........", "........", "........", "........", "##......", "........", "........", "........"),

@@ -170,7 +170,7 @@ class StatusBridge:
         duration = TTL_MS if kind in ('running', 'waiting') else 3000
         command = {'id': request_id, 'op': 'show', 'icon': icon, 'duration_ms': duration}
         if kind == 'running':
-            command['color'] = {'mode': 'rainbow_flow', 'period_ms': 5300}
+            command['color'] = {'mode': 'rainbow_cycle', 'period_ms': 12000}
         elif kind == 'waiting':
             command['color'] = {'mode': 'solid', 'values': ['orange']}
             command['effect'] = {'type': 'breathe', 'period_ms': 1000}
