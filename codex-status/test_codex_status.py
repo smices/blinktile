@@ -139,7 +139,7 @@ class CodexStatusTests(unittest.TestCase):
 
         asyncio.run(exercise())
 
-    def test_ble_chunks_writes_and_assembles_notification_line(self):
+    def test_ble_single_write_and_assembles_notification_line(self):
         async def exercise():
             client = FakeBleClient()
             device = BleDevice(client)
@@ -149,8 +149,7 @@ class CodexStatusTests(unittest.TestCase):
             self.assertEqual(reply['id'], 17)
             self.assertTrue(reply['ok'])
             wire = json.dumps(command, separators=(',', ':')).encode() + b'\n'
-            self.assertEqual(b''.join(client.writes), wire)
-            self.assertTrue(all(0 < len(chunk) <= 20 for chunk in client.writes))
+            self.assertEqual(client.writes, [wire])
             self.assertEqual(set(client.write_uuids), {BLE_WRITE_UUID})
             self.assertEqual(client.notify_uuid, BLE_NOTIFY_UUID)
             self.assertTrue(client.assert_response)
@@ -214,7 +213,7 @@ class CodexStatusTests(unittest.TestCase):
                 await find_ble_device(Scanner)
             selected = await find_ble_device(Scanner, address='cc:dd')
             self.assertIs(selected, second)
-            self.assertEqual(Scanner.options['service_uuids'], [BLE_SERVICE_UUID])
+            self.assertNotIn('service_uuids', Scanner.options)
 
         asyncio.run(exercise())
 

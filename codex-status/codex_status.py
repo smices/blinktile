@@ -23,7 +23,6 @@ ACTOR_TIMEOUT = 10 * 60
 BLE_SERVICE_UUID = '6d8f0000-6f52-4af0-9a2c-7b6143b8e100'
 BLE_WRITE_UUID = '6d8f0001-6f52-4af0-9a2c-7b6143b8e100'
 BLE_NOTIFY_UUID = '6d8f0002-6f52-4af0-9a2c-7b6143b8e100'
-BLE_CHUNK_SIZE = 20
 BLE_MAX_RESPONSE = 2048
 BLE_PAIRING_TIMEOUT = 30
 
@@ -242,11 +241,9 @@ class BleDevice:
     async def command(self, command):
         async with self.lock:
             payload = (json.dumps(command, separators=(',', ':')) + '\n').encode()
-            if len(payload) > 513:
+            if len(payload) > 512:
                 raise ValueError('BlinkTile request is too large')
-            for offset in range(0, len(payload), BLE_CHUNK_SIZE):
-                await self.client.write_gatt_char(
-                    BLE_WRITE_UUID, payload[offset:offset + BLE_CHUNK_SIZE], response=True)
+            await self.client.write_gatt_char(BLE_WRITE_UUID, payload, response=True)
             deadline = asyncio.get_running_loop().time() + 5
             while True:
                 remaining = deadline - asyncio.get_running_loop().time()
@@ -291,8 +288,7 @@ async def authenticate_ble(device, token=None, clock=None, sleep=None):
 
 
 async def find_ble_device(scanner, name='BlinkTile', address=None, timeout=8):
-    found = await scanner.discover(timeout=timeout, return_adv=True,
-                                   service_uuids=[BLE_SERVICE_UUID])
+    found = await scanner.discover(timeout=timeout, return_adv=True)
     devices = [pair for pair in found.values()]
     if address:
         matches = [device for device, _advertisement in devices
@@ -364,6 +360,7 @@ async def run_bridge(args):
 
     if args.ble:
         token = os.environ.get(args.token_env)
+        stage = 'scan'
         try:
             from bleak import BleakClient, BleakScanner
             from bleak.exc import BleakError
@@ -373,9 +370,14 @@ async def run_bridge(args):
             peripheral = await find_ble_device(
                 BleakScanner, name=args.ble_name, address=args.ble_address,
                 timeout=args.ble_scan_seconds)
+            stage = 'connect'
             async with BleakClient(peripheral) as client:
+                if client.services.get_service(BLE_SERVICE_UUID) is None:
+                    raise ValueError('Selected BLE device does not provide the BlinkTile service')
                 device = BleDevice(client)
+                stage = 'notification subscription'
                 await device.start()
+                stage = 'authentication'
                 if token:
                     await authenticate_ble(device, token)
                 else:
@@ -384,6 +386,8 @@ async def run_bridge(args):
                     await authenticate_ble(device)
                     print('BlinkTile BLE authenticated; release BOOT.', flush=True)
                 await serve_hooks(args, device)
+        except TimeoutError as error:
+            raise ValueError(f'BlinkTile BLE {stage} timed out') from error
         except BleakError as error:
             raise ValueError(f'Bluetooth operation failed: {type(error).__name__}') from None
         return
