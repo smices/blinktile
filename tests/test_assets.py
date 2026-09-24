@@ -22,8 +22,17 @@ assert min(loading_durations) >= 250 and max(loading_durations) <= 500
 assert len(set(loading_durations)) > 1, 'loading step speeds should vary'
 assert max(abs(loading_durations[i] - loading_durations[(i + 1) % len(loading_durations)])
            for i in range(len(loading_durations))) <= 40, 'loading speed should change smoothly at every step'
-assert all(sum(pixel > 28 for pixel in frame['pixels']) == 3 for frame in loading)
-assert all(all(frame['pixels'][i] == 16 for i in (27, 28, 35, 36)) for frame in loading)
+loading_ring = [(1, 3), (1, 4), (2, 5), (3, 6), (4, 6), (5, 5),
+                (6, 4), (6, 3), (5, 2), (4, 1), (3, 1), (2, 2)]
+for offset, frame in enumerate(loading):
+    lit = {index for index, pixel in enumerate(frame['pixels']) if pixel}
+    expected = {loading_ring[(offset + trail) % len(loading_ring)][0] * 8 +
+                loading_ring[(offset + trail) % len(loading_ring)][1] for trail in range(3)}
+    next_lit = {index for index, pixel in enumerate(loading[(offset + 1) % len(loading)]['pixels']) if pixel}
+    next_expected = {loading_ring[(offset + trail + 1) % len(loading_ring)][0] * 8 +
+                     loading_ring[(offset + trail + 1) % len(loading_ring)][1] for trail in range(3)}
+    assert len(lit) == 3 and lit == expected, 'loading must keep exactly three pixels on the ring'
+    assert next_lit == next_expected, 'loading highlights should advance one ring step per frame'
 for name in ('upload', 'download', 'waiting', 'smile', 'wink'):
     masks = {tuple(p > 0 for p in f['pixels']) for f in data['icons'][name]['frames']}
     assert len(masks) > 1, f'{name}: brightness-only pulsing is not a shape animation'

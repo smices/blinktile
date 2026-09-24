@@ -329,10 +329,6 @@ def animate_patterns() -> dict[str, tuple[str, list[list[int]], list[int], str]]
     paces = [rng.randint(280, 520) for _ in range(8)]
     for offset in range(len(ring_points) * 8):
         pixels = [0] * 64
-        for row, column in ring_points:
-            pixels[row * 8 + column] = 28
-        for row, column in ((3, 3), (3, 4), (4, 3), (4, 4)):
-            pixels[row * 8 + column] = 16
         for trail, level in enumerate((220, 140, 80)):
             row, column = ring_points[(offset + trail) % len(ring_points)]
             pixels[row * 8 + column] = level
