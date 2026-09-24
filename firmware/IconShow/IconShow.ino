@@ -5,6 +5,7 @@
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLEUtils.h>
+#include <DNSServer.h>
 #include <Preferences.h>
 #include <WebServer.h>
 #include <WebSocketsServer.h>
@@ -26,7 +27,6 @@ constexpr uint16_t kMaxResponse = 2048;
 constexpr uint8_t kQueueSize = 8;
 constexpr uint32_t kBleTimeoutMs = 2000;
 constexpr uint32_t kWifiAttemptMs = 30000;
-constexpr uint32_t kApGraceMs = 15000;
 constexpr uint8_t kDefaultBrightness = 64;
 constexpr uint16_t kDefaultColorPeriod = 5000;
 constexpr uint16_t kDefaultEffectPeriod = 2000;
@@ -42,6 +42,7 @@ constexpr float kPi = 3.14159265358979323846f;
 Adafruit_NeoPixel pixels(kPixels, kLedPin, NEO_GRB + NEO_KHZ800);
 WebServer http(80);
 WebSocketsServer webSocket(81);
+DNSServer dnsServer;
 Preferences preferences;
 
 enum Source : uint8_t { SOURCE_SERIAL, SOURCE_WS, SOURCE_BLE };
@@ -161,6 +162,7 @@ String controlToken;
 String setupPassword;
 uint32_t pairButtonDownAt = 0;
 bool pairButtonUsed = false;
+bool pairButtonApUsed = false;
 String apName;
 bool apRunning = false;
 bool wifiAttempting = false;
@@ -1049,12 +1051,26 @@ void startAp() {
   apRunning = true;
   apClosePending = false;
   scanState = -2;
+  httpNonce = randomWord();
+  dnsServer.start(53, "*", WiFi.softAPIP());
+  RenderState next;
+  next.mode = MODE_TEXT;
+  snprintf(next.text, sizeof(next.text), "PASS %s", setupPassword.c_str());
+  next.staticText = false;
+  next.scrollFinite = true;
+  next.scrollRepeat = 1;
+  next.scrollStepMs = kDefaultScrollStep;
+  next.color.values[0] = 0x40FF80;
+  next.brightness = state.brightness;
+  applyRenderState(next, millis());
 }
 
 void stopAp() {
+  dnsServer.stop();
   WiFi.softAPdisconnect(false);
   apRunning = false;
   apClosePending = false;
+  httpNonce = 0;
   if (WiFi.status() != WL_CONNECTED) WiFi.mode(WIFI_STA);
 }
 
@@ -1095,15 +1111,16 @@ bool checkCsrf() {
 
 void handleApRoot() {
   if (!requireAp()) return;
-  httpNonce = randomWord();
   char nonce[12];
   snprintf(nonce, sizeof(nonce), "%08lx", static_cast<unsigned long>(httpNonce));
-  String page = F("<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><title>IconShow setup</title>");
-  page += F("<style>body{font:16px system-ui;max-width:34rem;margin:2rem auto;padding:0 1rem}label{display:block;margin:1rem 0}input,button{font:inherit;padding:.5rem;width:100%}#status{white-space:pre-wrap}</style>");
-  page += F("<h1>IconShow Wi-Fi</h1><p id=status>Loading…</p><form method=post action=/api/apply><input type=hidden name=csrf value='");
+  String page = F("<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><title>BlinkTile setup</title>");
+  page += F("<style>body{font:16px system-ui;max-width:34rem;margin:2rem auto;padding:0 1rem}label{display:block;margin:1rem 0}input,button{font:inherit;padding:.5rem;width:100%}#status{white-space:pre-wrap}section{border-top:1px solid #bbb;margin-top:1.5rem;padding-top:.5rem}.row{display:flex;gap:.5rem}code{overflow-wrap:anywhere}</style>");
+  page += F("<h1>BlinkTile</h1><p>Keep this device Wi-Fi connected even if your phone says it has no internet.</p><p id=status>Loading…</p><form method=post action=/api/apply><input type=hidden name=csrf value='");
   page += nonce;
-  page += F("'><label>SSID<input id=ssid name=ssid list=networks required maxlength=32 autocomplete=off><datalist id=networks></datalist></label><label>Password<input name=password type=password maxlength=63 autocomplete=off></label><p>Hidden networks: enter the SSID manually.</p><button>Apply</button></form><button id=rescan type=button>Rescan</button><script>");
-  page += F("const form=document.querySelector('form'),status=document.querySelector('#status'),ssid=document.querySelector('#ssid'),list=document.querySelector('#networks');async function scan(){status.textContent='Scanning…';try{const j=await (await fetch('/api/scan')).json();if(!j.ok){status.textContent=j.error||'Scan failed';return;}if(j.pending){setTimeout(scan,500);return;}status.textContent='Choose a 2.4 GHz network';list.replaceChildren(...(j.networks||[]).filter(n=>n.ssid).map(n=>{const o=document.createElement('option');o.value=n.ssid;return o}));}catch(x){status.textContent='Scan failed';}}async function apply(e){e.preventDefault();status.textContent='Testing network…';try{const j=await (await fetch('/api/apply',{method:'POST',body:new URLSearchParams(new FormData(form))})).json();if(!j.ok){status.textContent=j.error||'Apply failed';return;}for(let i=0;i<40;i++){await new Promise(x=>setTimeout(x,1000));const s=await (await fetch('/api/status')).json();if(s.candidate_status==='connected'){status.textContent='Connected: '+s.sta_ip;return;}if(s.candidate_status==='save_failed'){status.textContent='Connected, but could not save the network.';return;}if(s.candidate_status==='failed'){status.textContent='Connection failed; old configuration was kept.';return;}}status.textContent='No IP; old configuration was kept.';}catch(x){status.textContent='Apply failed';}}form.onsubmit=apply;document.querySelector('#rescan').onclick=scan;scan();</script>");
+  page += F("'><label>SSID<input id=ssid name=ssid list=networks required maxlength=32 autocomplete=off><datalist id=networks></datalist></label><label>Password<input name=password type=password maxlength=63 autocomplete=off></label><p>Hidden networks: enter the SSID manually.</p><button>Apply</button></form><button id=rescan type=button>Rescan</button><section><h2>Device</h2><p id=icons>📶 Wi-Fi · ◉ BLE · ♥ Pet</p><p id=device>Connecting to controller…</p><div class=row><button id=time type=button>Show time</button><button id=pet type=button>Pet</button><button id=off type=button>Off</button></div><label>Brightness <input id=brightness type=range min=0 max=255 value=64></label></section><section><button id=finish type=button>Finish setup and close hotspot</button><details><summary>Advanced integration token</summary><input id=token readonly value='");
+  page += htmlEscape(controlToken);
+  page += F("'><button id=copy type=button>Copy token</button></details></section><script>");
+  page += F("const form=document.querySelector('form'),status=document.querySelector('#status'),ssid=document.querySelector('#ssid'),list=document.querySelector('#networks'),device=document.querySelector('#device'),tokenInput=document.querySelector('#token'),token=tokenInput.value,csrf=form.querySelector('[name=csrf]').value;async function scan(){status.textContent='Scanning…';try{const j=await (await fetch('/api/scan')).json();if(!j.ok){status.textContent=j.error||'Scan failed';return;}if(j.pending){setTimeout(scan,500);return;}status.textContent='Choose a 2.4 GHz network';list.replaceChildren(...(j.networks||[]).filter(n=>n.ssid).map(n=>{const o=document.createElement('option');o.value=n.ssid;return o}));}catch(x){status.textContent='Scan failed';}}async function apply(e){e.preventDefault();status.textContent='Testing network…';try{const j=await (await fetch('/api/apply',{method:'POST',body:new URLSearchParams(new FormData(form))})).json();if(!j.ok){status.textContent=j.error||'Apply failed';return;}for(let i=0;i<40;i++){await new Promise(x=>setTimeout(x,1000));const s=await (await fetch('/api/status')).json();if(s.candidate_status==='connected'){status.textContent='Connected: '+s.sta_ip+' · hotspot stays open until Finish setup';return;}if(s.candidate_status==='save_failed'){status.textContent='Connected, but could not save the network.';return;}if(s.candidate_status==='failed'){status.textContent='Connection failed; old configuration was kept.';return;}}status.textContent='No IP; old configuration was kept.';}catch(x){status.textContent='Apply failed';}}form.onsubmit=apply;document.querySelector('#rescan').onclick=scan;let ws,id=0,ready=false;function send(op,extra={}){if(ready)ws.send(JSON.stringify({id:++id,op,...extra}));}function connect(){ws=new WebSocket('ws://'+location.hostname+':81/ws');ws.onopen=()=>ws.send(JSON.stringify({id:++id,op:'auth',token}));ws.onmessage=e=>{const r=JSON.parse(e.data);if(r.id===1&&r.ok){ready=true;send('get');}if(r.state){const s=r.state;document.querySelector('#icons').textContent=(s.wifi_connected?'📶 Wi-Fi':'⚠ Wi-Fi')+' · ◉ BLE · '+(s.idle==='pet'?'♥ Pet':'○ Off')+' · '+s.brightness+'/255';device.textContent='Controller connected · '+(r.time||'time not set');document.querySelector('#brightness').value=s.brightness;}};ws.onclose=()=>{ready=false;device.textContent='Controller disconnected; reconnecting…';setTimeout(connect,1500);};}connect();document.querySelector('#time').onclick=()=>{send('clock',{epoch:Math.floor(Date.now()/1000),utc_offset_min:-new Date().getTimezoneOffset()});setTimeout(()=>send('time'),100);};document.querySelector('#pet').onclick=()=>send('idle',{mode:'pet'});document.querySelector('#off').onclick=()=>send('off');document.querySelector('#brightness').onchange=e=>send('brightness',{value:Number(e.target.value)});document.querySelector('#finish').onclick=async()=>{const r=await fetch('/api/finish',{method:'POST',body:new URLSearchParams({csrf})});if(r.ok)status.textContent='Hotspot closed. Hold BOOT for 5 seconds to reopen.';};document.querySelector('#copy').onclick=()=>{tokenInput.select();document.execCommand('copy');};scan();</script>");
   http.send(200, "text/html; charset=utf-8", page);
 }
 
@@ -1168,12 +1185,30 @@ void handleApApply() {
   http.send(202, "application/json", "{\"ok\":true,\"pending\":true}");
 }
 
+void handleApFinish() {
+  if (!requireAp()) return;
+  if (!checkCsrf()) {
+    http.send(403, "application/json", "{\"ok\":false,\"error\":\"csrf\"}");
+    return;
+  }
+  apClosePending = true;
+  apCloseAt = millis() + 500;
+  http.send(200, "application/json", "{\"ok\":true}");
+}
+
+void handleCaptivePortal() {
+  if (!requireAp()) return;
+  http.sendHeader("Location", "http://" + WiFi.softAPIP().toString() + "/");
+  http.send(302, "text/plain", "");
+}
+
 void setupHttp() {
   http.on("/", HTTP_GET, handleApRoot);
   http.on("/api/status", HTTP_GET, handleApStatus);
   http.on("/api/scan", HTTP_GET, handleApScan);
   http.on("/api/apply", HTTP_POST, handleApApply);
-  http.onNotFound([]() { http.send(404, "application/json", "{\"ok\":false,\"error\":\"not_found\"}"); });
+  http.on("/api/finish", HTTP_POST, handleApFinish);
+  http.onNotFound(handleCaptivePortal);
   http.begin();
 }
 
@@ -1198,8 +1233,6 @@ void wifiTick(uint32_t now) {
         wifiPassword = candidatePassword;
         candidateAttempt = false;
         candidateStatus = "connected";
-        apClosePending = apRunning;
-        apCloseAt = now + kApGraceMs;
       }
     } else if (timeReached(now, wifiDeadline)) {
       wifiAttempting = false;
@@ -1251,7 +1284,7 @@ void initWifi() {
   uint64_t chip = ESP.getEfuseMac();
   char suffix[5];
   snprintf(suffix, sizeof(suffix), "%04llX", static_cast<unsigned long long>(chip & 0xFFFF));
-  apName = String("IconShow-") + suffix;
+  apName = String("BlinkTile-") + suffix;
   if (!wifiSsid.length()) startAp();
   else {
     WiFi.mode(WIFI_STA);
@@ -1596,6 +1629,17 @@ bool physicalBlePairReady(uint32_t now) {
   return !pairButtonUsed && timeElapsed(now, pairButtonDownAt, 1000);
 }
 
+void physicalApPairTick(uint32_t now) {
+  if (digitalRead(kPairButtonPin) != LOW) {
+    pairButtonApUsed = false;
+    return;
+  }
+  if (digitalRead(kPairButtonPin) == LOW && pairButtonDownAt && !pairButtonApUsed && timeElapsed(now, pairButtonDownAt, 5000)) {
+    pairButtonApUsed = true;
+    startAp();
+  }
+}
+
 bool authAccepted(Source source, const char *token, bool physicalReady) {
   if (source == SOURCE_SERIAL || (token && secureEqual(token, controlToken.c_str()))) return true;
   if (source != SOURCE_BLE || !physicalReady) return false;
@@ -1790,7 +1834,7 @@ void loadSecrets() {
   controlToken = preferences.getString("token", "");
   setupPassword = preferences.getString("ap_pass", "");
   if (!controlToken.length()) { controlToken = randomHex(16); preferences.putString("token", controlToken); }
-  if (!setupPassword.length()) { setupPassword = randomHex(10); preferences.putString("ap_pass", setupPassword); }
+  if (setupPassword.length() != 8) { setupPassword = randomHex(4); preferences.putString("ap_pass", setupPassword); }
 }
 
 void firmwareSetup() {
@@ -1816,6 +1860,8 @@ void firmwareSetup() {
 void firmwareLoop() {
   const uint32_t now = millis();
   physicalBlePairReady(now);
+  physicalApPairTick(now);
+  if (apRunning) dnsServer.processNextRequest();
   webSocket.loop();
   http.handleClient();
   serialTick();

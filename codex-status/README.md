@@ -15,7 +15,7 @@ python3 -m venv .venv
 
 `/dev/cu.usbmodemXXXX` 是占位符，先用 `arduino-cli board list` 核对实际串口。若设备已联网，也可使用 `--ws-url ws://设备IP:81/ws --token-env ICONSHOW_TOKEN`；把设备控制密钥放在 `ICONSHOW_TOKEN` 环境变量中，不要写入命令、仓库或日志。桥接仅在 `127.0.0.1:8766` 接收 hook。本工具不会发起配网或切换电脑网络。可用模拟器的 `ws://127.0.0.1:8765/ws` 做软件测试。终止桥接后，灯板上最后一条状态会在其有效期届满后回到桌宠。
 
-也可直接通过 Bluetooth LE 连接，无需 Wi-Fi 或浏览器。Bleak 是可选依赖，只在此模式安装；设备必须正在广播。当前已烧录设备已用控制密钥完成 BLE 真机连接与 Codex 状态显示；BOOT 无密钥授权代码尚未烧录。
+也可直接通过 Bluetooth LE 连接，无需 Wi-Fi 或浏览器。Bleak 是可选依赖，只在此模式安装；设备必须正在广播。当前设备已用控制密钥完成 BLE 真机连接与 Codex 状态显示；BOOT 无密钥授权代码已经烧录，但实体按键路径尚未验收。
 
 已在这台机器上配置密钥时，从仓库根目录运行 `bash codex-status/start-ble.local.sh` 即可。此脚本内置本机设备密钥，不要求再次粘贴；已经运行的 BLE 桥接不会重复启动。脚本是本机专用文件，不纳入 Git。
 
@@ -31,7 +31,7 @@ unset ICONSHOW_TOKEN
 
 上面是当前固件已实测的连接方式。`read` 在终端隐藏输入，密钥不会写进命令行历史；`unset` 在桥接结束后清理 shell 变量。若此前未保存控制密钥，需通过 USB 串口的 `secrets` 命令获取一次，或先刷入支持 BOOT 物理授权的新版固件。不要把密钥写入仓库、命令行参数或日志。
 
-刷入 BOOT 授权新版固件后，也可以不设置 `ICONSHOW_TOKEN`，直接运行 `.venv/bin/python codex_status.py bridge --ble --listen-port 8766`。设备运行后按住 BOOT（不要同时按 RESET）约 2 秒，直到桥接认证成功后松开。桥接在同一 BLE 连接上最多尝试 30 秒；该物理操作只授权本次连接，不读取、返回或保存长期控制密钥。当前设备尚未实测这条路径。`ICONSHOW_TOKEN` 是兼容旧配置保留的变量名，不是设备广播名。
+也可以不设置 `ICONSHOW_TOKEN`，直接运行 `.venv/bin/python codex_status.py bridge --ble --listen-port 8766`。设备运行后按住 BOOT（不要同时按 RESET）约 2 秒，直到桥接认证成功后松开。桥接在同一 BLE 连接上最多尝试 30 秒；该物理操作只授权本次连接，不读取、返回或保存长期控制密钥。当前设备尚未实测这条按键路径。`ICONSHOW_TOKEN` 是兼容旧配置保留的变量名，不是设备广播名。
 若设备仍运行改名前的固件，广播名仍是 `IconShow`，请临时改用 `--ble-name IconShow`；烧录新版固件后才会广播 `BlinkTile`。
 
 默认按广播名 `BlinkTile` 扫描，连接后核对本项目 BLE 服务，再发送认证请求。若附近有多个同名设备，程序会列出地址并停止；按提示重新运行并加上 `--ble-address <地址>`（macOS 上可能是系统 UUID）。也可用 `--ble-name` 选择自定义设备名。协议使用固件的服务 UUID `6d8f0000-6f52-4af0-9a2c-7b6143b8e100`、写特征 UUID `6d8f0001-6f52-4af0-9a2c-7b6143b8e100` 和通知特征 UUID `6d8f0002-6f52-4af0-9a2c-7b6143b8e100`；JSON 命令以换行结束，每条请求单次写入，分段到达的响应通知会先拼成完整行再解析。

@@ -15,9 +15,10 @@
 - Static icons, shape animations, rainbow cycling/flow, breathing, alternating brightness, blink, independent periods and global speed.
 - ASCII 5×7 digits/English/symbols, smooth one-pixel scrolling for 100% and longer text.
 - Idle pet interrupted by external status, then restored on release/expiration.
-- Current idle pet starts with six-lane green falling streaks (random length, depth and density; 200ms/row), with brief smile and wink/heart interludes. BLE broadcasts `BlinkTile`; the setup hotspot still uses `IconShow-`.
+- Current idle pet starts with six-lane green falling streaks (random length, depth and density; 200ms/row), with brief smile and wink/heart interludes. BLE and setup hotspot names use `BlinkTile`.
 - Build firmware after design and controller work. First setup over USB; subsequent Wi-Fi setup through a password-protected device hotspot at 192.168.4.1. Failed candidate connection must preserve previous credentials.
 - Reference project is read-only. Do not modify it.
+- Product onboarding must work with only the powered device and a phone: a protected `BlinkTile-XXXX` AP, password shown on the matrix, fully local setup/basic control page, explicit hotspot close, and a 5-second BOOT recovery gesture. USB, a pre-known token, home Wi-Fi, internet, Web Bluetooth, and a native app are not prerequisites.
 
 ## Acceptance boundary
 
