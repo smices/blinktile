@@ -800,6 +800,7 @@ void showFrame(uint8_t frame[kPixels], const ColorSpec &color, const EffectSpec 
   if (variableMa > 436.0f) scale = 436.0f / variableMa;
   lastEstimatedMa = 64.0f + min(variableMa, 436.0f);
   lastPowerLimited = scale < 0.999f;
+  bool changed = false;
   for (uint8_t y = 0; y < 8; ++y) {
     for (uint8_t x = 0; x < 8; ++x) {
       const uint16_t logical = y * 8 + x;
@@ -807,10 +808,12 @@ void showFrame(uint8_t frame[kPixels], const ColorSpec &color, const EffectSpec 
       const uint8_t green = static_cast<uint8_t>(rounded[logical][1] * scale);
       const uint8_t blue = static_cast<uint8_t>(rounded[logical][2] * scale);
       const uint16_t physical = logical;
-      pixels.setPixelColor(physical, pixels.Color(red, green, blue));
+      const uint32_t rgb = pixels.Color(red, green, blue);
+      changed |= pixels.getPixelColor(physical) != rgb;
+      pixels.setPixelColor(physical, rgb);
     }
   }
-  pixels.show();
+  if (changed) pixels.show();
 }
 
 bool textIsScrolling(uint32_t phase, bool &finished) {

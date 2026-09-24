@@ -48,9 +48,11 @@ using std::min; using std::max;
 #define pgm_read_word(p) (*(const uint16_t*)(p))
 struct PixelOutput {
  uint32_t values[64] = {};
+ uint32_t showCount = 0;
  static uint32_t Color(uint8_t r,uint8_t g,uint8_t b){return (uint32_t(r)<<16)|(uint32_t(g)<<8)|b;}
+ uint32_t getPixelColor(uint16_t i) const{return values[i];}
  void setPixelColor(uint16_t i,uint32_t c){values[i]=c;}
- void show(){}
+ void show(){showCount++;}
 } pixels;
 uint32_t esp_random(){static uint32_t value=1;value=value*1664525+1013904223;return value;}
 '''
@@ -91,8 +93,17 @@ int main(){
   state=RenderState(); idleMode=IDLE_OFF; paused=false; speed=1; frameDirty=true;
   phaseRealOrigin=phaseVirtualOrigin=lastFrameAt=0;
   petMood=0; petMoodStarted=petMoodUntil=0; petMoodColor=0xFFD040; petMoodPeriod=5000;
+  pixels.showCount=0;
   for(int i=0;i<kMatrixLaneCount;i++){matrixLengths[i]=matrixIntensity[i]=0;matrixCycles[i]=UINT32_MAX;}
   std::fill(std::begin(pixels.values),std::end(pixels.values),0);
+  if(request["show_checks"].as<bool>()){
+   uint8_t frame[64]={}; ColorSpec color; color.values[0]=0xFFFFFF; EffectSpec effect;
+   showFrame(frame,color,effect,255,0); response["black"]=pixels.showCount;
+   frame[0]=255; showFrame(frame,color,effect,255,0); response["first"]=pixels.showCount;
+   showFrame(frame,color,effect,255,0); response["same"]=pixels.showCount;
+   frame[1]=255; showFrame(frame,color,effect,255,0); response["changed"]=pixels.showCount;
+   serializeJson(response,std::cout);std::cout<<std::endl;continue;
+  }
   if(request["priority"].as<bool>()){
    enterIdle(0,IDLE_PET); render(0);
    JsonDocument command;deserializeJson(command,R"({"id":1,"op":"show","icon":"success","duration_ms":100})");
@@ -147,6 +158,9 @@ int main(){
 
 def main():
     build()
+    check = subprocess.run([str(BUILD/'render')], input='{"show_checks":true}\n', capture_output=True, text=True, check=True)
+    show_counts = json.loads(check.stdout)
+    assert show_counts == {'black': 0, 'first': 1, 'same': 1, 'changed': 2}, f'unexpected NeoPixel show counts: {show_counts}'
     data=json.loads((ROOT/'data/icons.json').read_text())
     vectors=[]
     for name,icon in data['icons'].items():
