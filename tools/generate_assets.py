@@ -322,13 +322,21 @@ STATIC_SPECS = [
 def animate_patterns() -> dict[str, tuple[str, list[list[int]], list[int], str]]:
     ring_points = [(1, 3), (1, 4), (2, 5), (3, 6), (4, 6), (5, 5),
                    (6, 4), (6, 3), (5, 2), (4, 1), (3, 1), (2, 2)]
+    inner_points = [(2, 3), (2, 4), (3, 4), (3, 5), (4, 5), (4, 4),
+                    (5, 4), (5, 3), (4, 3), (4, 2), (3, 2), (3, 3)]
     loading = []
     for offset in range(len(ring_points)):
         pixels = [0] * 64
-        for point, (row, column) in enumerate(ring_points):
-            distance = (point - offset) % len(ring_points)
-            if distance < 6:
-                pixels[row * 8 + column] = (255, 190, 145, 110, 80, 55)[distance]
+        for row, column in ((3, 3), (3, 4), (4, 3), (4, 4)):
+            pixels[row * 8 + column] = 48
+        for blade in range(4):
+            first = (offset + blade * 3) % len(ring_points)
+            brightness = (230, 170, 120, 85)[blade]
+            row, column = inner_points[first]
+            pixels[row * 8 + column] = brightness * 2 // 3
+            for point, level in ((first, brightness), ((first + 1) % len(ring_points), brightness * 3 // 5)):
+                row, column = ring_points[point]
+                pixels[row * 8 + column] = level
         loading.append(pixels)
 
     waiting_patterns = [
@@ -389,7 +397,7 @@ def animate_patterns() -> dict[str, tuple[str, list[list[int]], list[int], str]]
     heart_small = pattern("........", "..#..#..", ".######.", "..####..", "...##...", "........", "........", "........")
     heart_big = pattern(".##..##.", "###..###", "########", ".######.", "..####..", "...##...", "........", "........")
     return {
-        "loading": ("加载", loading, [100] * len(loading), "cyan"),
+        "loading": ("加载", loading, [150] * len(loading), "cyan"),
         "waiting": ("等待", [pattern(*rows) for rows in waiting_patterns], [300] * 4, "yellow"),
         "busy": ("忙碌", busy_patterns, [400] * 4, "orange"),
         "upload": ("上传", [shift_y(upload_base, -offset) for offset in range(8)], [100] * 8, "green"),

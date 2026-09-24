@@ -169,7 +169,9 @@ class StatusBridge:
         icon = 'loading' if kind == 'running' else 'question' if kind == 'waiting' else 'success'
         duration = TTL_MS if kind in ('running', 'waiting') else 3000
         command = {'id': request_id, 'op': 'show', 'icon': icon, 'duration_ms': duration}
-        if kind == 'waiting':
+        if kind == 'running':
+            command['color'] = {'mode': 'rainbow_flow', 'period_ms': 5300}
+        elif kind == 'waiting':
             command['color'] = {'mode': 'solid', 'values': ['orange']}
             command['effect'] = {'type': 'breathe', 'period_ms': 1000}
         reply = await self.device.command(command)
