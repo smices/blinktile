@@ -8,3 +8,4 @@ dist/
 .env
 .env.*
 !.env.example
+codex-status/start-ble.local.sh
