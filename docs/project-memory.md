@@ -21,4 +21,6 @@
 
 ## Acceptance boundary
 
-At the start of implementation no ESP32 USB serial port was detected. By 2026-09-23 the current firmware had been flashed with hash verification and serial readback confirmed pet idle, 64/255 boot brightness and 8/255 after a temporary command. BLE radio, electrical measurements and the latest animation's visual quality remain unverified on hardware; do not infer them from compilation or simulation.
+At the start of implementation no ESP32 USB serial port was detected. By 2026-09-23 the current firmware had been flashed with hash verification and serial readback confirmed pet idle, 64/255 boot brightness and 8/255 after a temporary command. At that point BLE radio, electrical measurements and the latest animation's visual quality were unverified on hardware; do not infer them from compilation or simulation.
+
+On 2026-09-24 the existing-token BLE path was verified on the connected board: real GATT auth and `get` succeeded, then the codex-status BLE bridge accepted a synthetic hook (HTTP 204) and serial readback showed BLE connected, `loading` displayed, and brightness 8/255. The local BLE bridge replaced USB on port 8766. This verifies BLE connectivity and status display, not BOOT pairing, browser BLE, electrical measurements, all animations, or automatic Codex hook trust. The BOOT-auth firmware change is compiled but not flashed. The current bridge uses single-write BLE requests because segmented auth timed out on hardware.

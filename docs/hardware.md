@@ -34,11 +34,11 @@ arduino-cli monitor --port <ESP32串口> --config baudrate=115200
 
 ## BLE 连接
 
-BLE 广播名是 `BlinkTile`，不需要先连接 Wi-Fi，也不需要在系统蓝牙设置中配对。新版固件刷入后，可在设备已运行时按住 BOOT 键约 2 秒，以物理操作授权当前 BLE 连接；松开后新连接需要再次授权。该流程不返回或存储长期控制密钥，WebSocket 仍必须使用密钥。若已有密钥，BLE 也可照旧使用；无需为 BLE 专门连接 USB 读取 `secrets`。不要在上电或复位时按住 BOOT，否则可能进入下载模式。
+BLE 广播名是 `BlinkTile`，不需要先连接 Wi-Fi，也不需要在系统蓝牙设置中配对。**当前已烧录固件的 BLE 连接使用设备已有的 `control_token`**；codex-status 桥接已据此完成真机连接。支持 BOOT 无密钥授权的新版固件虽已编译，但尚未烧录；刷入后可在设备已运行时按住 BOOT 键约 2 秒，仅授权当前连接，不返回长期控制密钥。不要在上电或复位时按住 BOOT，否则可能进入下载模式。WebSocket 仍必须使用密钥。
 
-网页控制是可选入口：在仓库根目录运行 `python3 -m http.server 8000 --bind 127.0.0.1 --directory web`，用支持 Web Bluetooth 的桌面 Chrome/Edge 打开 `http://127.0.0.1:8000`。控制密钥可留空，点击“选择 BLE 设备”，在弹窗中选 `BlinkTile`，然后按住 BOOT 直至认证成功。网页会重试约 15 秒。只有使用这个浏览器页面才需要本地 HTTP 服务；若没有 Web Bluetooth 支持，可改用桥接或 WebSocket。
+网页控制是可选入口：在仓库根目录运行 `python3 -m http.server 8000 --bind 127.0.0.1 --directory web`，用支持 Web Bluetooth 的桌面 Chrome/Edge 打开 `http://127.0.0.1:8000`。当前固件需填入控制密钥；待 BOOT 授权固件刷入后可留空并在连接时按住 BOOT。只有使用这个浏览器页面才需要本地 HTTP 服务。网页 BLE 使用分段写入，尚未完成真机验收；需要可靠显示状态时，使用已验收的 codex-status BLE 桥接。
 
-Codex 状态桥接：按 [sample 的 BLE 启动步骤](../codex-status/README.md) 安装可选 Bleak 依赖并启动 `--ble`，不需要浏览器、本地 HTTP 服务或控制密钥。同一个本机 hook 端口一次只运行一个桥接实例；从 USB 桥接切换前先停止旧实例。BLE 扫描、物理授权和实物显示尚未完成本机无线验收，不能把软件分包测试当作无线连接成功。
+Codex 状态桥接：按 [sample 的 BLE 启动步骤](../codex-status/README.md) 安装可选 Bleak 依赖并使用控制密钥启动 `--ble`，不需要浏览器或本地 HTTP 服务。同一个本机 hook 端口一次只运行一个桥接实例；从 USB 桥接切换前先停止旧实例。当前设备的 BLE 密钥认证和状态显示已完成真机验收，BOOT 授权尚未验收。
 
 ## 真机验收表
 
@@ -48,7 +48,8 @@ Codex 状态桥接：按 [sample 的 BLE 启动步骤](../codex-status/README.md
 - [ ] 七彩循环与空间彩虹不同，呼吸和明暗交替可独立调速。
 - [ ] `100%` 和英文逐像素完整滚动；静态数字可辨。
 - [ ] USB 5V/1A 下限亮有效，无掉电、复位、异常发热。
-- [ ] BLE 20 字节分包、WebSocket、错误响应及断线恢复。
+- [x] BLE 使用控制密钥扫描、认证并显示 codex-status 的 `loading`；串口读回 `ble_connected=true`。
+- [ ] BLE 分段请求、BOOT 授权、WebSocket、错误响应及断线恢复。
 - [ ] 暂停期间仍能关闭，TTL 仍到期；续期不重启动画。
 - [ ] 临时状态退出恢复桌宠；off 后不自动亮起。
 - [ ] 首次配网、换网、错密码、隐藏 SSID、DHCP 失败。
