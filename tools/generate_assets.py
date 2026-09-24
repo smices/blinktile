@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
+import random
 import subprocess
 
 from PIL import Image, ImageDraw, ImageSequence
@@ -322,22 +323,26 @@ STATIC_SPECS = [
 def animate_patterns() -> dict[str, tuple[str, list[list[int]], list[int], str]]:
     ring_points = [(1, 3), (1, 4), (2, 5), (3, 6), (4, 6), (5, 5),
                    (6, 4), (6, 3), (5, 2), (4, 1), (3, 1), (2, 2)]
-    inner_points = [(2, 3), (2, 4), (3, 4), (3, 5), (4, 5), (4, 4),
-                    (5, 4), (5, 3), (4, 3), (4, 2), (3, 2), (3, 3)]
     loading = []
-    for offset in range(len(ring_points)):
+    loading_durations = []
+    rng = random.Random(0xB11A)
+    paces = [rng.randint(280, 520) for _ in range(8)]
+    for offset in range(len(ring_points) * 8):
         pixels = [0] * 64
+        for row, column in ring_points:
+            pixels[row * 8 + column] = 28
         for row, column in ((3, 3), (3, 4), (4, 3), (4, 4)):
-            pixels[row * 8 + column] = 48
-        for blade in range(4):
-            first = (offset + blade * 3) % len(ring_points)
-            brightness = (230, 170, 120, 85)[blade]
-            row, column = inner_points[first]
-            pixels[row * 8 + column] = brightness * 2 // 3
-            for point, level in ((first, brightness), ((first + 1) % len(ring_points), brightness * 3 // 5)):
-                row, column = ring_points[point]
-                pixels[row * 8 + column] = level
+            pixels[row * 8 + column] = 16
+        for trail, level in enumerate((220, 140, 80)):
+            row, column = ring_points[(offset + trail) % len(ring_points)]
+            pixels[row * 8 + column] = level
         loading.append(pixels)
+        lap, step = divmod(offset, len(ring_points))
+        progress = step / len(ring_points)
+        eased = progress * progress * (3 - 2 * progress)
+        pace = paces[lap] + (paces[(lap + 1) % len(paces)] - paces[lap]) * eased
+        duration = round(pace + 6 * math.sin(math.tau * progress))
+        loading_durations.append(max(250, min(500, duration)))
 
     waiting_patterns = [
         ("........", "........", "........", "........", "##......", "........", "........", "........"),
@@ -397,7 +402,7 @@ def animate_patterns() -> dict[str, tuple[str, list[list[int]], list[int], str]]
     heart_small = pattern("........", "..#..#..", ".######.", "..####..", "...##...", "........", "........", "........")
     heart_big = pattern(".##..##.", "###..###", "########", ".######.", "..####..", "...##...", "........", "........")
     return {
-        "loading": ("加载", loading, [150] * len(loading), "cyan"),
+        "loading": ("加载", loading, loading_durations, "cyan"),
         "waiting": ("等待", [pattern(*rows) for rows in waiting_patterns], [300] * 4, "yellow"),
         "busy": ("忙碌", busy_patterns, [400] * 4, "orange"),
         "upload": ("上传", [shift_y(upload_base, -offset) for offset in range(8)], [100] * 8, "green"),

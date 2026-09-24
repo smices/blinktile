@@ -12,7 +12,19 @@ assert all(any(cols) for char, cols in data['font'].items() if char != ' '), 'Pr
 assert data['font']['a'] != data['font']['A'], 'Lowercase must remain lowercase'
 required = {'loading', 'waiting', 'upload', 'download', 'smile', 'wink', 'heart', 'success', 'error'}
 assert required <= data['icons'].keys()
-for name in ('upload', 'download', 'loading', 'waiting', 'smile', 'wink'):
+loading = data['icons']['loading']['frames']
+assert len(loading) == 8 * 12, 'loading should make eight 12-step orbits'
+loading_durations = [frame['duration_ms'] for frame in loading]
+loading_laps = [sum(loading_durations[i:i + 12]) for i in range(0, len(loading_durations), 12)]
+assert 30_000 <= sum(loading_durations) <= 50_000, 'loading loop should last 30 to 50 seconds'
+assert all(3_000 <= duration <= 6_000 for duration in loading_laps), 'each loading orbit should last 3 to 6 seconds'
+assert min(loading_durations) >= 250 and max(loading_durations) <= 500
+assert len(set(loading_durations)) > 1, 'loading step speeds should vary'
+assert max(abs(loading_durations[i] - loading_durations[(i + 1) % len(loading_durations)])
+           for i in range(len(loading_durations))) <= 40, 'loading speed should change smoothly at every step'
+assert all(sum(pixel > 28 for pixel in frame['pixels']) == 3 for frame in loading)
+assert all(all(frame['pixels'][i] == 16 for i in (27, 28, 35, 36)) for frame in loading)
+for name in ('upload', 'download', 'waiting', 'smile', 'wink'):
     masks = {tuple(p > 0 for p in f['pixels']) for f in data['icons'][name]['frames']}
     assert len(masks) > 1, f'{name}: brightness-only pulsing is not a shape animation'
 for name in ('smile', 'wink'):
